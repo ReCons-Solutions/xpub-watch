@@ -1,0 +1,27 @@
+[Unit]
+Description=XPUB Watch - local Bitcoin watch-only alarm
+Wants=electrs.service www.service
+After=network.target electrs.service www.service
+
+[Service]
+Type=simple
+User=bitcoin
+Group=bitcoin
+WorkingDirectory=/opt/mynode/xpubwatch
+Environment=XPUBWATCH_DATA_DIR=/mnt/hdd/mynode/xpubwatch
+Environment=XPUBWATCH_ELECTRUM_HOST=127.0.0.1
+Environment=XPUBWATCH_ELECTRUM_PORT=50001
+Environment=XPUBWATCH_WEB_HOST=127.0.0.1
+Environment=XPUBWATCH_WEB_PORT=5114
+ExecStartPre=/usr/bin/is_not_shutting_down.sh
+ExecStart=/opt/mynode/xpubwatch/.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:5114 --access-logfile - --error-logfile - app:app
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/mnt/hdd/mynode/xpubwatch
+SyslogIdentifier=xpubwatch
+
+[Install]
+WantedBy=multi-user.target

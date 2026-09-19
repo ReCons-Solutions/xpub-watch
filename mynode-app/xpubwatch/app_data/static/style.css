@@ -1,0 +1,23 @@
+:root{color-scheme:dark;--bg:#101010;--panel:#1b1b1b;--line:#383838;--text:#f1f1f1;--muted:#aaa;--green:#48d06b;--red:#661f1f;--orange:#ff9f0a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}main{max-width:1500px;margin:auto;padding:36px}h1{font-size:2.2rem;margin:.2rem 0}h2{font-size:1.8rem}h3{font-size:1.35rem}.version{font-size:.8rem;color:var(--muted);font-weight:500}.muted{color:var(--muted)}section,.card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:24px;margin:20px 0}.cards{display:grid;gap:18px}.card-head,.topline{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.node-state{text-align:right;color:var(--muted)}.status{font-weight:800}.armed{color:var(--green)}.disarmed{color:#f0b44c}dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:18px 0}dt,dd{margin:0}.stack{display:grid;gap:14px}.stack label{display:grid;gap:6px}input,textarea,select,button{font:inherit;color:inherit;background:#242424;border:1px solid #555;border-radius:8px;padding:10px 12px}button{cursor:pointer}.danger{border-color:#8a3333;color:#ffb0b0}.actions{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}.inline{display:flex;gap:8px;margin:10px 0}.derived{margin-top:16px}.address-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.address-grid code{display:block;overflow-wrap:anywhere;padding:4px 0;color:#ccc}.alert{padding:12px 16px;border-radius:8px}.alert.error{background:#5b1e1e}.alert.ok{background:#173e22}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);vertical-align:top}tr.critical:not(.ack){background:#551b1b}tr.warning:not(.ack){background:#4b3617}tr.ack{opacity:.5}code{font-size:.88em}.brand-block{display:flex;align-items:center;gap:18px;min-width:0}.brand-logo{width:108px;height:108px;object-fit:contain;border-radius:18px;flex:0 0 auto}.brand-copy{min-width:0}.brand-copy h1{margin:.2rem 0}.brand-copy .muted{margin:.35rem 0 0}@media(max-width:800px){main{padding:18px}.brand-logo{width:76px;height:76px;border-radius:14px}.brand-block{gap:12px}.brand-copy h1{font-size:1.8rem}.address-grid{grid-template-columns:1fr}.topline{display:block}.node-state{text-align:left}.card-head{display:block}th,td{padding:8px}}
+
+.notification-types {
+  border: 1px solid #3a3a3a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 6px 0 10px;
+}
+.notification-types legend {
+  padding: 0 8px;
+  font-weight: 700;
+}
+.notification-types .check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 9px 0;
+}
+.notification-types .check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ff9900;
+}

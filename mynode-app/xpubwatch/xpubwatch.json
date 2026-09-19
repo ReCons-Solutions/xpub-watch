@@ -1,0 +1,65 @@
+{
+  "name": "XPUB Watch",
+  "short_name": "xpubwatch",
+  "author": {
+    "name": "XPUB Watch Project",
+    "link": ""
+  },
+  "website": {
+    "name": "Local App",
+    "link": ""
+  },
+  "category": "bitcoin_app",
+  "short_description": "Multi-wallet watch-only Bitcoin alarm",
+  "description": [
+    "Monitors multiple Bitcoin account xpub/ypub/zpub keys through your local Electrum Server.",
+    "Tracks receive/change addresses and UTXOs and raises an immediate event when a known UTXO is spent.",
+    "Tracks mempool/confirmed state and confirmation counts, identifies spending TXIDs, and adds transaction explorer links.",
+    "Supports optional ntfy/Gotify/Telegram notifications. Never enter a seed phrase, private key, PIN or BIP39 passphrase."
+  ],
+  "latest_version": "0.4.0-beta.1",
+  "supported_archs": null,
+  "minimum_debian_version": 10,
+  "download_skip": true,
+  "download_type": "source",
+  "download_source_url": "not_required",
+  "install_env_vars": {},
+  "supports_testnet": true,
+  "http_port": 5115,
+  "https_port": 5116,
+  "requires_bitcoin": true,
+  "requires_electrs": true,
+  "requires_lightning": false,
+  "show_on_marketplace_page": false,
+  "show_on_application_page": true,
+  "show_on_homepage": true,
+  "show_on_status_page": true,
+  "hide_status_icon": false,
+  "app_tile_name": "XPUB Watch",
+  "app_tile_running_status_text": "Monitoring",
+  "app_tile_button_text": "Info",
+  "app_tile_button_href": "/app/xpubwatch/info",
+  "app_page_show_open_button": true,
+  "app_page_content": [
+    {
+      "heading": "Security",
+      "content": [
+        "Watch-only: add one or more account xpub/ypub/zpub keys.",
+        "Never enter a seed phrase, private key, hardware-wallet PIN or BIP39 passphrase.",
+        "All blockchain queries go to the Electrum Server running on this MyNode.",
+        "The app is served through MyNode HTTPS on port 5116."
+      ]
+    }
+  ],
+  "can_uninstall": true,
+  "can_reinstall": true,
+  "can_enable_disable": true,
+  "is_beta": false,
+  "is_premium": false,
+  "homepage_section": "apps",
+  "homepage_order": 92,
+  "app_type": "custom",
+  "sdk_version": 2,
+  "data_manageable": true,
+  "journalctl_log_name": "xpubwatch"
+}
