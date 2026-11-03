@@ -1,0 +1,2 @@
+-r mynode-app/xpubwatch/app_data/requirements.txt
+pytest>=7,<9

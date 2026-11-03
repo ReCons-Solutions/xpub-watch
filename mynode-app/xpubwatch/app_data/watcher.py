@@ -25,10 +25,10 @@ def confirmations(height, tip_height):
 class Watcher(threading.Thread):
     daemon = True
 
-    def __init__(self):
+    def __init__(self, client=None):
         super().__init__(name="xpub-watcher")
         self.stop_event = threading.Event()
-        self.client = ElectrumClient(ELECTRUM_HOST, ELECTRUM_PORT)
+        self.client = client or ElectrumClient(ELECTRUM_HOST, ELECTRUM_PORT)
         self.last_error = None
         self.last_scan = None
         self.tip_height = None
@@ -40,10 +40,7 @@ class Watcher(threading.Thread):
     def run(self):
         while not self.stop_event.is_set():
             try:
-                self.client.version()
-                tip = self.client.tip() or {}
-                self.tip_height = tip.get("height")
-                self.scan_all()
+                self.scan_once()
                 self.consecutive_errors = 0
                 self.last_error = None
                 self.last_scan = int(time.time())
@@ -55,6 +52,12 @@ class Watcher(threading.Thread):
                     self.last_error = str(exc)
                 log.exception("watch scan failed (consecutive=%d)", self.consecutive_errors)
             self.stop_event.wait(POLL_SECONDS)
+
+    def scan_once(self):
+        self.client.version()
+        tip = self.client.tip() or {}
+        self.tip_height = tip.get("height")
+        self.scan_all()
 
     def ensure_lookahead(self, conn, wallet):
         for branch in (0, 1):
