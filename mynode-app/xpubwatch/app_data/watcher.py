@@ -5,7 +5,7 @@ import time
 
 import ledger
 import notifier
-from config import ELECTRUM_HOST, ELECTRUM_PORT, LOOKAHEAD, POLL_SECONDS
+from config import ELECTRUM_HOST, ELECTRUM_PORT, ELECTRUM_TIMEOUT, LOOKAHEAD, POLL_SECONDS
 from db import connect, event, set_runtime
 from electrum_client import ElectrumClient
 from wallet import derive_address_record, parse_raw_tx
@@ -30,7 +30,7 @@ class Watcher(threading.Thread):
     def __init__(self, client=None):
         super().__init__(name="xpub-watcher")
         self.stop_event = threading.Event()
-        self.client = client or ElectrumClient(ELECTRUM_HOST, ELECTRUM_PORT)
+        self.client = client or ElectrumClient(ELECTRUM_HOST, ELECTRUM_PORT, timeout=ELECTRUM_TIMEOUT)
         self.last_error = None
         self.last_scan = None
         self.tip_height = None
