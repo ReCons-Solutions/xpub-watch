@@ -18,6 +18,7 @@ log = logging.getLogger("xpubwatch.notify")
 
 DEFAULT_EXPLORER_TX_URL = "https://mempool.space/tx/"
 MAX_ATTEMPTS = 10
+OUTBOX_RETENTION_SECONDS = 30 * 86400
 CHANNEL_SETTINGS = {
     "ntfy": ("ntfy_server", "ntfy_topic", "ntfy_token"),
     "telegram": ("telegram_bot_token", "telegram_chat_id"),
@@ -205,6 +206,8 @@ def dispatch_pending(now=None, limit=50):
     now = int(now or time.time())
     try:
         with connect() as conn:
+            conn.execute("DELETE FROM outbox WHERE sent_at IS NOT NULL AND sent_at < ?",
+                         (now - OUTBOX_RETENTION_SECONDS,))
             cfg = _channel_config(conn)
             rows = conn.execute(
                 "SELECT * FROM outbox WHERE sent_at IS NULL AND attempts < ? AND next_attempt_at <= ?"

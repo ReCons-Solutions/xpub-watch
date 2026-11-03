@@ -154,3 +154,21 @@ def test_migration_from_04_database(tmp_path, monkeypatch, chain, sent):
         assert c.execute("SELECT confirmations FROM events WHERE kind='receive'").fetchone()[0] == 51
     notifier.dispatch_pending()
     assert kinds(sent) == ["spend"]
+
+
+def test_upgrade_corrects_stale_04_state_silently(db, chain, watcher, sent):
+    """0.4 could leave a UTXO marked spent without spending txid (false alarm).
+    The re-baseline corrects it without notifying again."""
+    from fake_electrum import scripthash_of
+
+    op = chain.pay(spk(ZPUB, 0), 9_000, height=chain.tip_height)
+    wid = add(db)
+    with db.connect() as conn:
+        conn.execute("INSERT INTO utxos(wallet_id,tx_hash,tx_pos,value,height,scripthash,first_seen,spent_at)"
+                     " VALUES(?,?,?,?,?,?,0,1)", (wid, op[0], op[1], 9_000, chain.tip_height,
+                                                  scripthash_of(spk(ZPUB, 0))))
+    watcher.scan_once()
+    assert sent == []
+    assert [e["kind"] for e in events(db)] == ["spend_reverted", "sync"]
+    with db.connect() as conn:
+        assert conn.execute("SELECT spent_at FROM utxos").fetchone()[0] is None

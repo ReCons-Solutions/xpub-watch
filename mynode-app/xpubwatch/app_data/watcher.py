@@ -306,13 +306,13 @@ class Watcher(threading.Thread):
             total = sum(o.value for o in unspent)
             event(conn, wid, "info", "sync",
                   "Initial sync complete: %d unspent output(s), balance %s" % (len(unspent), _btc(total)),
-                  None, "confirmed", 0)
+                  None, "done", 0)
             conn.execute("UPDATE wallets SET synced=1 WHERE id=?", (wid,))
 
     def _refresh_events(self, conn, wid, tx_heights):
         rows = conn.execute(
-            "SELECT id, txid, status, confirmations FROM events WHERE wallet_id=? AND txid IS NOT NULL"
-            " AND status != 'dropped'", (wid,)
+            "SELECT id, txid, status, confirmations FROM events WHERE wallet_id=? AND txid IS NOT NULL",
+            (wid,)
         ).fetchall()
         for r in rows:
             if r["txid"] in tx_heights:

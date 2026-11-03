@@ -113,8 +113,9 @@ def reconcile(truth, stored, baseline):
     stored:   {outpoint: row-like mapping with value, height, spent_at,
               spend_txid, spend_height, spend_confirm_notified}
     baseline: True while the wallet has not completed its first sync.
-              Outputs first discovered during the baseline are recorded
-              without alerts; transitions of already stored rows still alert.
+              Outputs first discovered during the baseline and corrections
+              of stale stored state are recorded without alerts; a spend or
+              replaced spend of an already stored UTXO still alerts.
 
     Returns a list of Change objects in a stable, causal order.
     """
@@ -133,7 +134,9 @@ def reconcile(truth, stored, baseline):
         if not was_spent and out.spent:
             changes.append(Change("spend", out, row))
         elif was_spent and not out.spent:
-            changes.append(Change("spend_reverted", out, row))
+            # During the one-time re-baseline after an upgrade this corrects
+            # stale state (e.g. a false 0.4 spend alarm); record it silently.
+            changes.append(Change("spend_reverted", out, row, notify=not baseline))
         elif was_spent and out.spent:
             if row["spend_txid"] is None:
                 # Legacy row ("detected" without spending txid): fill in silently.
@@ -150,5 +153,5 @@ def reconcile(truth, stored, baseline):
 
     for op, row in stored.items():
         if op not in truth:
-            changes.append(Change("receive_dropped", None, row))
+            changes.append(Change("receive_dropped", None, row, notify=not baseline))
     return changes

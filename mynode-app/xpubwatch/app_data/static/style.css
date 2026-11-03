@@ -28,3 +28,5 @@
 .logout{margin-top:10px}
 .logout button{padding:6px 10px;font-size:.9rem}
 .card-head form{margin:0}
+.stack label .badge{justify-self:start;margin-left:0}
+hr{border:0;border-top:1px solid var(--line);width:100%;margin:6px 0}
