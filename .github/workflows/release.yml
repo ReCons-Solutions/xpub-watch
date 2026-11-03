@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check tag matches VERSION
+        run: |
+          VERSION="$(tr -d '[:space:]' < mynode-app/xpubwatch/app_data/VERSION)"
+          test "${GITHUB_REF_NAME}" = "v${VERSION}" || { echo "tag ${GITHUB_REF_NAME} != v${VERSION}"; exit 1; }
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+      - name: Test
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pytest
+      - name: Validate
+        run: ./scripts/validate-release.sh
+      - name: Build archive
+        run: python scripts/build-release.py dist
+      - name: Extract release notes
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## / && f {exit} f' CHANGELOG.md > notes.md
+          printf '\n> **Beta software.** Read SECURITY.md before use. Never enter a seed or private key.\n' >> notes.md
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS \
+            --title "XPUB Watch $VERSION" --notes-file notes.md $PRERELEASE

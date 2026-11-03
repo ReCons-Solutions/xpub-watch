@@ -8,9 +8,9 @@ XPUB Watch is a local, watch-only Bitcoin monitoring application for MyNode. It 
 
 ## Status
 
-**v0.4.0-beta.1** — public beta candidate based on the tested 0.3.9 MyNode build.
+**v0.5.0-beta.1** — hardening release (authentication, transaction ledger, notification outbox, persistent Electrum connection). See [CHANGELOG.md](CHANGELOG.md).
 
-The core receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Community App installation and Telegram notification flows have been tested on a MyNode installation. See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
+The 0.4 receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Community App installation and Telegram notification flows were field-tested on MyNode. 0.5 is covered by an automated test suite and needs the same field test before it replaces 0.4 (see [PUBLISHING.md](PUBLISHING.md)). See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
 
 ## Features
 
@@ -26,6 +26,9 @@ The core receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Co
 - Spend detection from the mempool
 - Spending transaction ID resolution
 - Confirmation counting
+- Detection of replaced (RBF) and dropped transactions
+- Silent initial sync of funded wallets
+- Password-protected web UI with CSRF protection
 - ARMED / DISARMED state per wallet
 - Telegram notifications
 - Optional ntfy / Gotify notifications
@@ -87,10 +90,16 @@ MyNode → Marketplace / Community Apps → Add Application
 Upload:
 
 ```text
-xpubwatch-mynode-community-app-0.4.0-beta.1.tar.gz
+xpubwatch-mynode-community-app-<version>.tar.gz
 ```
 
-After installation open XPUB Watch from the MyNode dashboard.
+Verify the archive against `SHA256SUMS` from the same release before uploading:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+After installation open XPUB Watch from the MyNode dashboard and **set the access password immediately**. Until a password is set, anyone who can reach the page could set it.
 
 Persistent application data is stored at:
 
@@ -108,15 +117,35 @@ Application code is installed at:
 
 Use an **account-level extended public key**, not a seed.
 
-Select the matching script type:
+Network and script type are taken from the key prefix where possible:
 
-| Key / wallet type | XPUB Watch script type | Typical address |
+| Key prefix | Script type | Typical address |
 |---|---|---|
-| BIP84 | Native SegWit | `bc1q...` |
-| BIP49 | Nested SegWit | `3...` |
-| BIP44 | Legacy | `1...` |
+| `zpub` / `vpub` | Native SegWit (BIP84) — automatic | `bc1q...` |
+| `ypub` / `upub` | Nested SegWit (BIP49) — automatic | `3...` |
+| `xpub` / `tpub` | select explicitly (BIP84, BIP49 or BIP44) | depends |
 
-After adding a wallet, verify several derived receive addresses against the source wallet before relying on alerts.
+A selection that contradicts the prefix, a key that is already watched, private keys and multisig keys (`Ypub`/`Zpub`) are rejected.
+
+After adding a wallet, the UI shows the first receive address. Verify it and several further derived addresses against the source wallet before relying on alerts.
+
+The first scan records existing funds and history silently and logs one `sync` event. Alerts start with the next change.
+
+## Alert types
+
+| Event | Meaning | Severity (ARMED) | Toggle |
+|---|---|---|---|
+| `receive` | new output to a wallet address | info | Receive alerts |
+| `receive_dropped` | an incoming transaction disappeared (dropped, replaced or reorganised) | warning | Receive alerts |
+| `spend` | a known UTXO is spent (mempool or confirmed) | critical | Spend alerts |
+| `spend_replaced` | the spending transaction was replaced (RBF / conflict) | critical | Spend alerts |
+| `spend_reverted` | the spending transaction disappeared; the UTXO is unspent again | warning | Spend alerts |
+| `spend_confirmed` | the spending transaction got its first confirmation | critical | Spend confirmation alerts |
+| `sync` | initial sync of a wallet finished | info | (no notification) |
+
+DISARMED wallets record the same events with severity `warning` instead of `critical`; with "Only notify for ARMED wallets" they send no notifications.
+
+Notifications are written to an outbox in the same database transaction as the event and delivered afterwards. Failed channels are retried with backoff (up to 10 attempts) without duplicating messages on channels that already succeeded.
 
 ## Telegram setup
 
@@ -126,7 +155,7 @@ After adding a wallet, verify several derived receive addresses against the sour
 4. Enter the bot token and chat ID in XPUB Watch.
 5. Use **Send test notification**.
 
-The bot token is stored locally in the XPUB Watch SQLite database. It is not embedded in the source code or release archive.
+The bot token is stored locally in the XPUB Watch SQLite database. It is never shown again in the UI after saving (leave the field empty to keep it, tick "Remove" to delete it). It is not embedded in the source code or release archive.
 
 Example spend notification:
 
@@ -142,6 +171,8 @@ Mempool: https://mempool.space/tx/…
 ```
 
 ## Security model
+
+The web UI requires a password (PBKDF2-SHA256), protects every form with a CSRF token, throttles failed logins and sends a strict Content-Security-Policy. The session cookie is `HttpOnly`, `Secure` and `SameSite=Strict`.
 
 XPUB Watch is watch-only. A compromise of XPUB Watch must not provide signing capability because the application does not require private keys.
 
@@ -197,6 +228,22 @@ cat /home/bitcoin/.mynode/xpubwatch_version
 systemctl status xpubwatch --no-pager
 ```
 
+## Upgrading from 0.4
+
+- Upload the new archive as described above. Wallets, events and settings are kept.
+- On the first visit after the upgrade you are asked to set an access password.
+- The database is migrated automatically (backup first, see above). Each wallet is re-synchronised once: history unknown to 0.4 is recorded silently, but a spend of a UTXO that 0.4 already tracked still raises an alarm.
+- Notification tokens are no longer displayed; they remain stored.
+
+## Reset the password
+
+```bash
+sudo -u bitcoin XPUBWATCH_DATA_DIR=/mnt/hdd/mynode/xpubwatch \
+  /opt/mynode/xpubwatch/.venv/bin/python /opt/mynode/xpubwatch/manage.py reset-password
+```
+
+Then open XPUB Watch and set a new password immediately.
+
 ## Uninstall
 
 Use the MyNode application management UI. The exact data-retention behavior should be checked before uninstalling; back up `/mnt/hdd/mynode/xpubwatch` first if the data must be retained.
@@ -233,7 +280,9 @@ journalctl -u xpubwatch -n 100 --no-pager
 ## Known limitations
 
 - Public beta; not independently security-audited.
+- The first visitor after installation sets the password. Set it right away.
 - Web UI is intended for a trusted local MyNode environment. Do not expose the XPUB Watch ports directly to the public Internet.
+- Single-signature accounts only (no multisig / descriptors).
 - Notification secrets are stored locally in SQLite. Protect MyNode backups and filesystem access.
 - Taproot / BIP86 account monitoring is not yet implemented.
 - XPUB Watch detects unauthorized-looking spends but cannot prevent a valid transaction signed with compromised private keys.
@@ -247,11 +296,23 @@ The MyNode Community App source is in:
 mynode-app/xpubwatch/
 ```
 
-Run the local release checks:
+Run the tests and release checks:
 
 ```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest
 ./scripts/validate-release.sh
 ```
+
+The tests use an in-memory Electrum backend (`tests/fake_electrum.py`) and a local Electrum protocol server (`tests/electrum_server.py`); no node is required.
+
+Build the Community App archive (reproducible):
+
+```bash
+python3 scripts/build-release.py dist
+```
+
+Release: `scripts/set-version.sh <version>`, add the CHANGELOG entry, commit, tag `v<version>`. The `Release` workflow tests, builds and publishes the archive and `SHA256SUMS` as a GitHub release.
 
 ## License
 

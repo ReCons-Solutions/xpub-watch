@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="narrow">
+  <h2>Set an access password</h2>
+  <p>XPUB Watch shows your balances and can change where alerts are sent. Protect it with a password before adding wallets.</p>
+  <p class="muted">Anyone who opens this page first can set the password, so do it right after installation. Minimum 10 characters; a passphrase from your password manager is ideal.</p>
+  <form method="post" action="{{ url_for('setup') }}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Password <input type="password" name="password" required minlength="10" autocomplete="new-password" autofocus></label>
+    <label>Repeat password <input type="password" name="password2" required minlength="10" autocomplete="new-password"></label>
+    <button>Set password</button>
+  </form>
+</section>
+{% endblock %}

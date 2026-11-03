@@ -1,26 +1,17 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="20">
-  <title>XPUB Watch</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-<main>
-  <div class="topline">
-    <div class="brand-block">
-      <img class="brand-logo" src="{{ url_for('static', filename='xpubwatch-logo.png') }}" alt="XPUB Watch logo">
-      <div class="brand-copy">
-        <h1>XPUB Watch <span class="version">0.4.0-beta.1</span></h1>
-        <p class="muted">Local, watch-only Bitcoin monitoring. Never enter a seed or private key.</p>
-      </div>
-    </div>
-    <div class="node-state">Electrum: {{ 'OK' if not watcher_error else 'ERROR' }}{% if tip_height %}<br>Tip: {{ tip_height }}{% endif %}</div>
-  </div>
-  {% if watcher_error %}<div class="alert error">Electrum: {{ watcher_error }}</div>{% endif %}
-  {% for category, msg in get_flashed_messages(with_categories=true) %}<div class="alert {{ category }}">{{ msg }}</div>{% endfor %}
+{% extends "base.html" %}
+{% block body_attrs %} data-refresh="20"{% endblock %}
+{% block topright %}
+<div class="node-state">
+  Electrum: <strong class="{{ 'armed' if state.ok else 'disarmed' }}">{{ 'OK' if state.ok else ('STALE' if state.stale and not state.last_error else 'ERROR') }}</strong>
+  {% if state.tip_height %}<br>Tip: {{ state.tip_height }}{% endif %}
+  {% if state.last_scan %}<br>Last scan: {{ state.last_scan|ts }}{% endif %}
+  <form method="post" action="{{ url_for('logout') }}" class="logout"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Log out</button></form>
+</div>
+{% endblock %}
+{% block content %}
+  {% if state.last_error %}<div class="alert error">Electrum: {{ state.last_error }}</div>
+  {% elif state.stale %}<div class="alert error">The watcher has not reported for a while. Check the service log.</div>{% endif %}
+  {% if outbox_pending and outbox_error %}<div class="alert error">{{ outbox_pending }} notification(s) pending delivery. Last error: {{ outbox_error }}</div>{% endif %}
 
   <section>
     <h2>Wallets</h2>
@@ -30,19 +21,22 @@
         <article class="card">
           <div class="card-head"><h3>{{ w.name }}</h3><span class="status {{ 'armed' if w.armed else 'disarmed' }}">{{ 'ARMED' if w.armed else 'DISARMED' }}</span></div>
           <dl>
-            <dt>Balance</dt><dd>{{ '%.8f'|format(w.balance / 100000000) }} BTC</dd>
+            <dt>Balance</dt><dd>{{ w.balance|btc }} BTC</dd>
+            {% if w.unconfirmed %}<dt>of which unconfirmed</dt><dd>{{ w.unconfirmed|btc }} BTC</dd>{% endif %}
             <dt>UTXOs</dt><dd>{{ w.utxo_count }}</dd>
             <dt>Used addresses</dt><dd>{{ w.used_addresses }}</dd>
-            <dt>Script</dt><dd>{{ w.script_type }}</dd>
+            <dt>Script</dt><dd>{{ script_labels.get(w.script_type, w.script_type) }}</dd>
+            <dt>Network</dt><dd>{{ 'mainnet' if w.network == 'main' else 'testnet' }}</dd>
+            {% if not w.synced %}<dt>Status</dt><dd>initial sync pending</dd>{% endif %}
           </dl>
           <div class="actions">
-            <form method="post" action="{{ url_for('set_armed', wallet_id=w.id) }}"><input type="hidden" name="armed" value="{{ 0 if w.armed else 1 }}"><button>{{ 'Disarm' if w.armed else 'Arm' }}</button></form>
+            <form method="post" action="{{ url_for('set_armed', wallet_id=w.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="armed" value="{{ 0 if w.armed else 1 }}"><button>{{ 'Disarm' if w.armed else 'Arm' }}</button></form>
             <details><summary>Manage</summary>
-              <form method="post" action="{{ url_for('rename_wallet', wallet_id=w.id) }}" class="inline"><input name="name" value="{{ w.name }}" required><button>Rename</button></form>
-              <form method="post" action="{{ url_for('delete_wallet', wallet_id=w.id) }}" onsubmit="return confirm('Delete this watch-only wallet and its local history?')"><button class="danger">Delete wallet</button></form>
+              <form method="post" action="{{ url_for('rename_wallet', wallet_id=w.id) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="name" value="{{ w.name }}" required maxlength="80"><button>Rename</button></form>
+              <form method="post" action="{{ url_for('remove_wallet', wallet_id=w.id) }}" data-confirm="Delete this watch-only wallet and its local history?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger">Delete wallet</button></form>
             </details>
           </div>
-          <details class="derived"><summary>Derived addresses</summary>
+          <details class="derived"><summary>Derived addresses (verify against your wallet)</summary>
             <div class="address-grid">
               <div><h4>Receive /0</h4>{% for a in item.receive %}<code>{{ a.idx }} {{ a.address }}{% if a.used %} ✓{% endif %}</code>{% endfor %}</div>
               <div><h4>Change /1</h4>{% for a in item.change %}<code>{{ a.idx }} {{ a.address }}{% if a.used %} ✓{% endif %}</code>{% endfor %}</div>
@@ -57,55 +51,73 @@
   <section>
     <h2>Add watch-only wallet</h2>
     <form method="post" action="{{ url_for('create_wallet') }}" class="stack">
-      <label>Name <input name="name" required placeholder="Coldcard Vault"></label>
-      <label>Account xpub / ypub / zpub <textarea name="xpub" rows="3" required autocomplete="off"></textarea></label>
-      <label>Network <select name="network"><option value="main">Bitcoin mainnet</option><option value="test">Testnet</option></select></label>
-      <label>Script type <select name="script_type"><option value="p2wpkh">Native SegWit (BIP84 / bc1q)</option><option value="p2sh-p2wpkh">Nested SegWit (BIP49 / 3...)</option><option value="p2pkh">Legacy (BIP44 / 1...)</option></select></label>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Name <input name="name" required maxlength="80" placeholder="Coldcard Vault"></label>
+      <label>Account xpub / ypub / zpub (tpub / upub / vpub for testnet) <textarea name="xpub" rows="3" required autocomplete="off" spellcheck="false"></textarea></label>
+      <label>Script type
+        <select name="script_type">
+          <option value="auto">Automatic from prefix (ypub / zpub)</option>
+          {% for key, label in script_labels.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <p class="muted">Network and, for ypub/zpub, the script type are taken from the key. For an xpub select the script type explicitly. The first scan records existing funds silently; alerts start with the next change. Address gap limit: {{ lookahead }}.</p>
       <button>Add wallet</button>
     </form>
   </section>
 
-  <section>
+  <section id="notifications">
     <h2>Notifications</h2>
-    <p class="muted">Optional. Leave blank to keep all alerts local. Tokens are stored only in the local XPUB Watch SQLite database.</p>
+    <p class="muted">Optional. Leave blank to keep all alerts local. Tokens are stored only in the local XPUB Watch database and are never shown again after saving.</p>
     <form method="post" action="{{ url_for('save_settings') }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>ntfy server <input name="ntfy_server" value="{{ settings.ntfy_server }}" placeholder="https://ntfy.sh or your own server"></label>
       <label>ntfy topic <input name="ntfy_topic" value="{{ settings.ntfy_topic }}" placeholder="private-random-topic"></label>
-      <label>ntfy access token <input type="password" name="ntfy_token" value="{{ settings.ntfy_token }}" autocomplete="new-password"></label>
+      {% with key='ntfy_token', label='ntfy access token' %}{% include "_secret.html" %}{% endwith %}
       <label>Gotify server <input name="gotify_server" value="{{ settings.gotify_server }}" placeholder="https://gotify.example"></label>
-      <label>Gotify app token <input type="password" name="gotify_token" value="{{ settings.gotify_token }}" autocomplete="new-password"></label>
+      {% with key='gotify_token', label='Gotify app token' %}{% include "_secret.html" %}{% endwith %}
       <hr>
-      <label>Telegram bot token <input type="password" name="telegram_bot_token" value="{{ settings.telegram_bot_token }}" placeholder="123456789:AA..." autocomplete="new-password"></label>
+      {% with key='telegram_bot_token', label='Telegram bot token' %}{% include "_secret.html" %}{% endwith %}
       <label>Telegram chat ID <input name="telegram_chat_id" value="{{ settings.telegram_chat_id }}" placeholder="123456789 or -100..."></label>
-      <label>Transaction explorer URL <input name="explorer_tx_url" value="{{ settings.explorer_tx_url or 'https://mempool.space/tx/' }}" placeholder="https://mempool.space/tx/"></label>
-      <p class="muted">Use a base ending in <code>/tx/</code> or a template containing <code>{txid}</code>. The link is only opened when you tap it.</p>
+      <label>Transaction explorer URL <input name="explorer_tx_url" value="{{ settings.explorer_tx_url }}" placeholder="https://mempool.space/tx/"></label>
+      <p class="muted">Use a base ending in <code>/tx/</code> or a template containing <code>{txid}</code>, e.g. your node's own mempool instance. The link is only opened when you tap it.</p>
       <fieldset class="notification-types">
         <legend>Alert types</legend>
-        <label class="check"><input type="checkbox" name="notify_receive" value="1" {% if settings.notify_receive == '1' %}checked{% endif %}> Receive alerts</label>
-        <label class="check"><input type="checkbox" name="notify_spend" value="1" {% if settings.notify_spend == '1' %}checked{% endif %}> Spend alerts</label>
+        <label class="check"><input type="checkbox" name="notify_receive" value="1" {% if settings.notify_receive == '1' %}checked{% endif %}> Receive alerts (incl. dropped incoming transactions)</label>
+        <label class="check"><input type="checkbox" name="notify_spend" value="1" {% if settings.notify_spend == '1' %}checked{% endif %}> Spend alerts (incl. replaced / reverted spends)</label>
         <label class="check"><input type="checkbox" name="notify_confirmation" value="1" {% if settings.notify_confirmation == '1' %}checked{% endif %}> Spend confirmation alerts</label>
         <label class="check"><input type="checkbox" name="notify_armed_only" value="1" {% if settings.notify_armed_only == '1' %}checked{% endif %}> Only notify for ARMED wallets</label>
       </fieldset>
       <button>Save notification settings</button>
     </form>
-    <form method="post" action="{{ url_for('test_notification') }}" class="inline"><button>Send test notification</button></form>
+    <form method="post" action="{{ url_for('test_notification') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Send test notification</button></form>
   </section>
 
-  <section>
-    <h2>Events</h2>
+  <section id="events">
+    <div class="card-head"><h2>Events</h2>
+      {% if unacked %}<form method="post" action="{{ url_for('acknowledge_all') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Acknowledge all ({{ unacked }})</button></form>{% endif %}
+    </div>
     <div class="tablewrap"><table>
-      <thead><tr><th>Time</th><th>Wallet</th><th>Severity</th><th>Type</th><th>Status</th><th>Confirmations</th><th>Message</th><th></th></tr></thead>
+      <thead><tr><th>Time</th><th>Wallet</th><th>Severity</th><th>Type</th><th>Status</th><th>Conf.</th><th>Message</th><th></th></tr></thead>
       <tbody>
       {% for e in events %}
         <tr class="{{ e.severity }} {{ 'ack' if e.acknowledged else '' }}">
-          <td>{{ e.created_at }}</td><td>{{ e.wallet_name }}</td><td>{{ e.severity }}</td><td>{{ e.kind }}</td><td>{{ e.status }}</td><td>{{ e.confirmations }}</td>
-          <td>{{ e.message }}{% if e.txid %}<br><code>{{ e.txid }}</code><br><a href="{{ explorer_tx_url.rstrip('/') }}/{{ e.txid }}" target="_blank" rel="noopener noreferrer">Open transaction</a>{% endif %}</td>
-          <td>{% if not e.acknowledged %}<form method="post" action="{{ url_for('acknowledge', event_id=e.id) }}"><button>Ack</button></form>{% endif %}</td>
+          <td>{{ e.created_at|ts }}</td><td>{{ e.wallet_name }}</td><td>{{ e.severity }}</td><td>{{ e.kind }}</td><td>{{ e.status }}</td><td>{{ e.confirmations }}</td>
+          <td>{{ e.message }}{% if e.txid %}<br><code>{{ e.txid }}</code><br><a href="{{ tx_link(e.txid) }}" target="_blank" rel="noopener noreferrer">Open transaction</a>{% endif %}</td>
+          <td>{% if not e.acknowledged %}<form method="post" action="{{ url_for('acknowledge', event_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Ack</button></form>{% endif %}</td>
         </tr>
       {% else %}<tr><td colspan="8">No events yet.</td></tr>{% endfor %}
       </tbody>
     </table></div>
   </section>
-</main>
-</body>
-</html>
+
+  <section id="security">
+    <h2>Access password</h2>
+    <form method="post" action="{{ url_for('change_password') }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
+      <label>New password <input type="password" name="new_password" required minlength="10" autocomplete="new-password"></label>
+      <label>Repeat new password <input type="password" name="new_password2" required minlength="10" autocomplete="new-password"></label>
+      <button>Change password</button>
+    </form>
+  </section>
+{% endblock %}

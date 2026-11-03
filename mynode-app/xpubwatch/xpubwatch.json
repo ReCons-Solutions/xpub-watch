@@ -17,7 +17,7 @@
     "Tracks mempool/confirmed state and confirmation counts, identifies spending TXIDs, and adds transaction explorer links.",
     "Supports optional ntfy/Gotify/Telegram notifications. Never enter a seed phrase, private key, PIN or BIP39 passphrase."
   ],
-  "latest_version": "0.4.0-beta.1",
+  "latest_version": "0.5.0-beta.1",
   "supported_archs": null,
   "minimum_debian_version": 10,
   "download_skip": true,

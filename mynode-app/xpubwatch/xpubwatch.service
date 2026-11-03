@@ -21,6 +21,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ReadWritePaths=/mnt/hdd/mynode/xpubwatch
+UMask=0077
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 SyslogIdentifier=xpubwatch
 
 [Install]

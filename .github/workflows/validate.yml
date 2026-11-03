@@ -1,10 +1,27 @@
-name: Validate release
+name: CI
 
 on:
   push:
   pull_request:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.8: oldest supported target; 3.11: Debian 12 based MyNode.
+        python-version: ['3.8', '3.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run tests
+        run: python -m pytest
+
   validate:
     runs-on: ubuntu-latest
     steps:
