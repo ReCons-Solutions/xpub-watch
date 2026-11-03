@@ -1,7 +1,7 @@
 """End-to-end watcher scenarios against the in-memory Electrum backend.
 
-Tests marked ``xfail(strict=True)`` reproduce known defects of 0.4.0-beta.1.
-They must fail on the old code; the fix removes the marker.
+The second group reproduces defects of 0.4.0-beta.1 (all failed on that
+version) and guards their fixes.
 """
 import pytest
 
@@ -84,10 +84,10 @@ def test_change_branch_and_lookahead(db, chain, watcher, sent):
 
 
 # ---------------------------------------------------------------------------
-# Known defects of 0.4.0-beta.1
+# Regression tests for defects of 0.4.0-beta.1
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="A1: rollback after notify causes duplicate alerts")
+
 def test_no_duplicate_alert_when_later_wallet_fails(db, chain, watcher, sent):
     add(db, ZPUB, "p2wpkh", "First")
     add(db, XPUB, "p2pkh", "Second")
@@ -104,7 +104,6 @@ def test_no_duplicate_alert_when_later_wallet_fails(db, chain, watcher, sent):
     assert kinds(sent).count("spend") == 1
 
 
-@pytest.mark.xfail(strict=True, reason="A2: dropped spend re-announces the UTXO as a new receive")
 def test_dropped_spend_is_reported_as_reverted_not_receive(db, chain, watcher, sent):
     add(db)
     watcher.scan_once()
@@ -117,7 +116,6 @@ def test_dropped_spend_is_reported_as_reverted_not_receive(db, chain, watcher, s
     assert kinds(sent) == ["receive", "spend", "spend_reverted"]
 
 
-@pytest.mark.xfail(strict=True, reason="dropped unconfirmed receive raises a false SPEND alarm")
 def test_dropped_incoming_tx_is_not_a_spend(db, chain, watcher, sent):
     add(db)
     watcher.scan_once()
@@ -129,7 +127,6 @@ def test_dropped_incoming_tx_is_not_a_spend(db, chain, watcher, sent):
     assert kinds(sent) == ["receive", "receive_dropped"]
 
 
-@pytest.mark.xfail(strict=True, reason="A3: receive+spend between two polls is invisible")
 def test_receive_and_spend_between_polls(db, chain, watcher, sent):
     add(db)
     watcher.scan_once()
@@ -139,7 +136,6 @@ def test_receive_and_spend_between_polls(db, chain, watcher, sent):
     assert kinds(sent) == ["receive", "spend"]
 
 
-@pytest.mark.xfail(strict=True, reason="RBF replacement of a spend is not tracked")
 def test_rbf_replaced_spend_is_tracked(db, chain, watcher, sent):
     add(db)
     watcher.scan_once()
@@ -157,7 +153,6 @@ def test_rbf_replaced_spend_is_tracked(db, chain, watcher, sent):
     assert kinds(sent) == ["receive", "spend", "spend_replaced", "spend_confirmed"]
 
 
-@pytest.mark.xfail(strict=True, reason="importing a funded wallet floods receive alerts")
 def test_import_of_funded_wallet_is_silent(db, chain, watcher, sent):
     for i in range(5):
         chain.pay(spk(ZPUB, i), 1_000 * (i + 1), height=chain.tip_height - 10)
@@ -167,7 +162,6 @@ def test_import_of_funded_wallet_is_silent(db, chain, watcher, sent):
     assert balance(db, wid) == 15_000
 
 
-@pytest.mark.xfail(strict=True, reason="gap-limit discovery needs several poll cycles")
 def test_gap_discovery_in_single_scan(db, chain, watcher, sent):
     chain.pay(spk(ZPUB, 15), 1_000, height=chain.tip_height)
     chain.pay(spk(ZPUB, 30), 2_000, height=chain.tip_height)

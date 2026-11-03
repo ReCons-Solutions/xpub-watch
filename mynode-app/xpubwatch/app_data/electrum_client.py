@@ -77,3 +77,16 @@ class ElectrumClient:
 
     def tip(self):
         return self.call("blockchain.headers.subscribe", [])
+
+    # Batched helpers used by the watcher.
+    def subscribe_many(self, scripthashes):
+        return [self.call("blockchain.scripthash.subscribe", [sh]) for sh in scripthashes]
+
+    def history_many(self, scripthashes):
+        return [self.history(sh) for sh in scripthashes]
+
+    def transactions_raw(self, txids):
+        return [self.transaction(txid, False) for txid in txids]
+
+    def close(self):
+        pass

@@ -2,10 +2,10 @@ import logging
 import os
 from flask import Flask, flash, redirect, render_template, request, url_for
 from config import WEB_HOST, WEB_PORT
-from db import add_wallet, connect, get_setting, init_db, set_setting
+from db import add_wallet, connect, delete_wallet as db_delete_wallet, get_setting, init_db, set_setting
 from wallet import load_xpub
 from watcher import Watcher
-from notifier import notify
+from notifier import send_test
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 app = Flask(__name__)
@@ -101,11 +101,7 @@ def rename_wallet(wallet_id):
 
 @app.post("/wallets/<int:wallet_id>/delete")
 def delete_wallet(wallet_id):
-    with connect() as conn:
-        conn.execute("DELETE FROM events WHERE wallet_id=?", (wallet_id,))
-        conn.execute("DELETE FROM utxos WHERE wallet_id=?", (wallet_id,))
-        conn.execute("DELETE FROM addresses WHERE wallet_id=?", (wallet_id,))
-        conn.execute("DELETE FROM wallets WHERE id=?", (wallet_id,))
+    db_delete_wallet(wallet_id)
     flash("Wallet deleted", "ok")
     return redirect(url_for("index"))
 
@@ -132,8 +128,11 @@ def save_settings():
 
 @app.post("/settings/test")
 def test_notification():
-    notify("Notification test", "info", "test", "Telegram/notification test from XPUB Watch", force=True)
-    flash("Test notification sent to all configured notification channels", "ok")
+    results = send_test()
+    if not results:
+        flash("No notification channel configured", "error")
+    for channel, error in results.items():
+        flash("%s: %s" % (channel, error or "sent"), "error" if error else "ok")
     return redirect(url_for("index"))
 
 
