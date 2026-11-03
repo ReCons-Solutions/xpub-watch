@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>XPUB Watch</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body{% block body_attrs %}{% endblock %}>
+<main>
+  <div class="topline">
+    <div class="brand-block">
+      <img class="brand-logo" src="{{ url_for('static', filename='xpubwatch-logo.png') }}" alt="XPUB Watch logo">
+      <div class="brand-copy">
+        <h1>XPUB Watch <span class="version">{{ version }}</span></h1>
+        <p class="muted">Local, watch-only Bitcoin monitoring. Never enter a seed or private key.</p>
+      </div>
+    </div>
+    {% block topright %}{% endblock %}
+  </div>
+  {% for category, msg in get_flashed_messages(with_categories=true) %}<div class="alert {{ category }}">{{ msg }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

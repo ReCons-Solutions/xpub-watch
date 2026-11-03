@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 _TMP = tempfile.mkdtemp(prefix="xpubwatch-tests-")
 os.environ["XPUBWATCH_DATA_DIR"] = _TMP
 os.environ.setdefault("XPUBWATCH_POLL_SECONDS", "1")
+os.environ["XPUBWATCH_START_WATCHER"] = "0"
+os.environ["XPUBWATCH_COOKIE_SECURE"] = "0"
 
 from fake_electrum import FakeElectrum  # noqa: E402
 
