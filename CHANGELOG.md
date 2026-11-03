@@ -2,6 +2,53 @@
 
 All notable changes to XPUB Watch are documented here.
 
+## [0.5.0-beta.1] - unreleased
+
+Hardening release. Upgrading from 0.4.0-beta.1 keeps all wallets, events and
+settings; see "Upgrading from 0.4" in the README.
+
+### Security
+- Web UI now requires a password (set on first visit after install/upgrade).
+- CSRF protection on all forms, login throttling, hardened session cookie
+  (own cookie name, HttpOnly, Secure, SameSite=Strict).
+- Notification tokens are write-only and never rendered back into the page.
+- Content-Security-Policy and further security headers; no inline JavaScript.
+- Gotify token is sent in a header instead of the URL.
+- Exactly one background watcher per data directory (file lock).
+- Database and data directory restricted to the service user.
+
+### Fixed
+- Duplicate SPEND alerts when a later part of a scan failed (rollback after
+  the notification had been sent).
+- A dropped or replaced spend re-announced the UTXO as a new receive.
+- A dropped unconfirmed incoming transaction raised a critical SPEND alarm.
+- Outputs received and spent between two polls were never reported.
+- RBF replacement of a spend was not tracked; confirmation tracking stuck on
+  the replaced transaction.
+- Adding a funded wallet sent one receive alert per existing UTXO.
+- Gap-limit discovery needed several poll cycles.
+
+### Changed
+- Wallet state is derived from the Electrum transaction history (ledger)
+  instead of diffing `listunspent` snapshots. New event types:
+  `spend_replaced`, `spend_reverted`, `receive_dropped`, `sync`.
+- Notifications use a transactional outbox with per-channel retry.
+- Persistent, pipelined Electrum connection; histories are only fetched when
+  an address's Electrum status hash changes (about 10x faster idle scans).
+- Raw transactions are parsed locally; verbose `getrawtransaction` / txindex
+  is no longer required.
+- Network and script type are derived from the key prefix; conflicting
+  selections and duplicates are rejected; multisig keys are rejected.
+- Test notification reports the result per channel.
+- Version is defined once (`app_data/VERSION`); release archives are built
+  reproducibly by CI on tags instead of being committed.
+
+### Added
+- Automated test suite (BIP vectors, watcher scenarios, Electrum protocol,
+  web security) running on Python 3.8 and 3.11.
+- `manage.py reset-password`.
+- Unconfirmed balance, "acknowledge all", readable timestamps.
+
 ## [0.4.0-beta.1] - 2026-09-19
 
 First publication candidate based on the field-tested 0.3.9 MyNode build.

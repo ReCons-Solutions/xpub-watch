@@ -18,16 +18,18 @@ XPUB Watch should remain a small, auditable, watch-only Bitcoin monitoring appli
 
 1. Fork or branch from the current release.
 2. Make one focused change.
-3. Run:
+3. Add or update tests (`tests/`). Alert semantics changes need a watcher scenario test.
+4. Run:
 
 ```bash
+python3 -m pytest
 ./scripts/validate-release.sh
 ```
 
-4. Test a clean MyNode Community App installation.
-5. Test upgrade from the previous version with existing data.
-6. Verify receive, spend and confirmation events.
-7. Verify Telegram test notification when notification code changes.
+5. Test a clean MyNode Community App installation.
+6. Test upgrade from the previous version with existing data.
+7. Verify receive, spend and confirmation events.
+8. Verify Telegram test notification when notification code changes.
 
 ## Pull requests
 
