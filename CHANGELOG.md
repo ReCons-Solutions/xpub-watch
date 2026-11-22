@@ -44,9 +44,16 @@ settings; see "Upgrading from 0.4" in the README.
   reproducibly by CI on tags instead of being committed.
 
 ### Added
+<<<<<<< HEAD
 - Balance queries in Telegram: `/balance [name]`, `/status`, `/help`
   (aliases `/saldo`, `/kontostand`), answered only for the configured chat;
   long polling, no inbound port; off by default.
+=======
+- `install-on-mynode.sh` in the release archive: installs or upgrades the app
+  over SSH (backup, copy to /usr/share/mynode_apps, mynode-manage-apps
+  init/install, start). Current MyNode versions no longer offer the
+  "Add Application" upload page; the README describes the new procedure.
+>>>>>>> dev/hardening
 - Automated test suite (BIP vectors, watcher scenarios, Electrum protocol,
   web security) running on Python 3.8 and 3.11.
 - `manage.py reset-password`.

@@ -26,7 +26,7 @@ python3 -m pytest
 ./scripts/validate-release.sh
 ```
 
-5. Test a clean MyNode Community App installation.
+5. Test a clean MyNode installation with `install-on-mynode.sh`.
 6. Test upgrade from the previous version with existing data.
 7. Verify receive, spend and confirmation events.
 8. Verify Telegram test notification when notification code changes.

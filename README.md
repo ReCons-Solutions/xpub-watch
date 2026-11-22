@@ -10,7 +10,7 @@ XPUB Watch is a local, watch-only Bitcoin monitoring application for MyNode. It 
 
 **v0.5.0-beta.1** — hardening release (authentication, transaction ledger, notification outbox, persistent Electrum connection). See [CHANGELOG.md](CHANGELOG.md).
 
-The 0.4 receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Community App installation and Telegram notification flows were field-tested on MyNode. 0.5 is covered by an automated test suite and needs the same field test before it replaces 0.4 (see [PUBLISHING.md](PUBLISHING.md)). See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
+The 0.4 receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode installation and Telegram notification flows were field-tested on MyNode. 0.5 is covered by an automated test suite and needs the same field test before it replaces 0.4 (see [PUBLISHING.md](PUBLISHING.md)). See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
 
 ## Features
 
@@ -36,7 +36,7 @@ The 0.4 receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Com
 - Optional "ARMED wallets only" notifications
 - Local SQLite persistence
 - Local Electrum Server usage — no public blockchain API required
-- MyNode Community App package
+- MyNode app package with a one-command installer
 
 ## Architecture
 
@@ -74,30 +74,50 @@ XPUB Watch never needs signing keys. The extended public key is sensitive privac
 
 ## Requirements
 
-- MyNode with dynamic / Community App support
+- MyNode with dynamic app support (`/usr/share/mynode_apps`, `mynode-manage-apps`) and SSH access
 - Bitcoin Core synced
 - Electrum Server (`electrs`) installed and running
 - Network access from MyNode for optional Telegram / ntfy / Gotify notifications
 
 ## Installation on MyNode
 
-Download the Community App archive from the GitHub Release and install it through:
+Current MyNode versions no longer have an "Add Application" upload page in the web interface. Apps that are not part of MyNode are installed over SSH into MyNode's app folder (`/usr/share/mynode_apps`) and registered with `mynode-manage-apps` – the same way MyNode's own developer tooling installs apps on a device. The release archive contains a script that does all of it.
 
-```text
-MyNode → Marketplace / Community Apps → Add Application
-```
+1. Download `xpubwatch-mynode-community-app-<version>.tar.gz` and `SHA256SUMS` from the GitHub release and verify the archive:
 
-Upload:
+   ```bash
+   sha256sum -c SHA256SUMS
+   ```
 
-```text
-xpubwatch-mynode-community-app-<version>.tar.gz
-```
+2. Copy the archive to the node (from your computer; Windows: PowerShell):
 
-Verify the archive against `SHA256SUMS` from the same release before uploading:
+   ```bash
+   scp xpubwatch-mynode-community-app-<version>.tar.gz admin@<node-ip>:/tmp/
+   ```
+
+3. Log in and run the installer:
+
+   ```bash
+   ssh admin@<node-ip>
+   cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-community-app-<version>.tar.gz
+   sudo bash xpubwatch/install-on-mynode.sh
+   ```
+
+   The script backs up an existing data folder (`/mnt/hdd/mynode/xpubwatch-backup-<date>`), copies the app to `/usr/share/mynode_apps/xpubwatch`, runs `mynode-manage-apps init` and `install` (or `reinstall` for the same version), enables and starts the service and prints the address of the web UI. `--no-backup` skips the backup.
+
+4. Open `https://<node-ip>:5116` or the XPUB Watch tile on the MyNode dashboard.
+
+Manual equivalent of step 3:
 
 ```bash
-sha256sum -c SHA256SUMS
+sudo cp -a /mnt/hdd/mynode/xpubwatch /mnt/hdd/mynode/xpubwatch-backup-$(date +%F)   # if it exists
+sudo rm -rf /usr/share/mynode_apps/xpubwatch && sudo cp -a /tmp/xpubwatch /usr/share/mynode_apps/xpubwatch
+sudo mynode-manage-apps init
+sudo mynode-manage-apps install xpubwatch          # same version again: reinstall
+sudo systemctl enable --now xpubwatch
 ```
+
+XPUB Watch appears as a dashboard tile and under Apps, not in the Marketplace list.
 
 After installation open XPUB Watch from the MyNode dashboard and **set the access password immediately**. Until a password is set, anyone who can reach the page could set it.
 
@@ -232,7 +252,7 @@ Treat the backup as sensitive because it can contain xpubs and notification cred
 
 ## Upgrade
 
-Upload the newer Community App archive through MyNode. The storage directory under `/mnt/hdd/mynode/xpubwatch` is preserved by normal upgrades.
+Install the newer archive exactly like a new installation (steps 1–3 above). The installer backs up `/mnt/hdd/mynode/xpubwatch` first; the data folder itself is kept and migrated by the app.
 
 Always verify after an upgrade:
 
@@ -243,7 +263,7 @@ systemctl status xpubwatch --no-pager
 
 ## Upgrading from 0.4
 
-- Upload the new archive as described above. Wallets, events and settings are kept.
+- Install the new archive as described above. Wallets, events and settings are kept.
 - On the first visit after the upgrade you are asked to set an access password.
 - The database is migrated automatically (backup first, see above). Each wallet is re-synchronised once: history unknown to 0.4 is recorded silently, but a spend of a UTXO that 0.4 already tracked still raises an alarm.
 - Notification tokens are no longer displayed; they remain stored.
@@ -259,7 +279,13 @@ Then open XPUB Watch and set a new password immediately.
 
 ## Uninstall
 
-Use the MyNode application management UI. The exact data-retention behavior should be checked before uninstalling; back up `/mnt/hdd/mynode/xpubwatch` first if the data must be retained.
+Uninstall XPUB Watch under Apps in the MyNode web interface, or over SSH:
+
+```bash
+sudo mynode-manage-apps uninstall xpubwatch
+```
+
+The data folder `/mnt/hdd/mynode/xpubwatch` is kept (it contains xpubs and notification tokens – delete it yourself if you no longer need it). To remove the app from the device completely, also delete `/usr/share/mynode_apps/xpubwatch` and run `sudo mynode-manage-apps init`.
 
 ## Troubleshooting
 
@@ -303,7 +329,7 @@ journalctl -u xpubwatch -n 100 --no-pager
 
 ## Development
 
-The MyNode Community App source is in:
+The MyNode app source is in:
 
 ```text
 mynode-app/xpubwatch/
@@ -319,7 +345,7 @@ python3 -m pytest
 
 The tests use an in-memory Electrum backend (`tests/fake_electrum.py`) and a local Electrum protocol server (`tests/electrum_server.py`); no node is required.
 
-Build the Community App archive (reproducible):
+Build the release archive (reproducible):
 
 ```bash
 python3 scripts/build-release.py dist

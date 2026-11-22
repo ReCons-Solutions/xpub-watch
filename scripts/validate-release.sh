@@ -34,6 +34,8 @@ done
 test -s "$APP/xpubwatch.png"
 test -s "$APP/app_data/static/xpubwatch-logo.png"
 test -x "$APP/scripts/install_xpubwatch.sh"
+test -x "$APP/install-on-mynode.sh"
+bash -n "$APP/install-on-mynode.sh"
 
 # Build twice: the archive must be reproducible and contain the payload.
 OUT1="$(mktemp -d)"; OUT2="$(mktemp -d)"
@@ -43,7 +45,7 @@ python3 "$ROOT/scripts/build-release.py" "$OUT2" >/dev/null
 cmp -s "$OUT1/SHA256SUMS" "$OUT2/SHA256SUMS" || { echo "release archive is not reproducible" >&2; exit 1; }
 ARCHIVE="$OUT1/xpubwatch-mynode-community-app-$VERSION.tar.gz"
 LISTING="$(tar tzf "$ARCHIVE")"
-for required in xpubwatch/xpubwatch.json xpubwatch/app_data/VERSION xpubwatch/app_data/app.py \
+for required in xpubwatch/install-on-mynode.sh xpubwatch/xpubwatch.json xpubwatch/app_data/VERSION xpubwatch/app_data/app.py \
                 xpubwatch/scripts/install_xpubwatch.sh xpubwatch/xpubwatch.service; do
   grep -qx "$required" <<< "$LISTING" || { echo "missing $required in archive" >&2; exit 1; }
 done
