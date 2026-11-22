@@ -6,12 +6,17 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # 3.8: oldest supported target; 3.11: Debian 12 based MyNode.
-        python-version: ['3.8', '3.11']
+        # 3.8: oldest supported target (not available on newer runner images);
+        # 3.11: Debian 12 based MyNode.
+        include:
+          - python-version: '3.8'
+            os: ubuntu-22.04
+          - python-version: '3.11'
+            os: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,6 +33,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: '3.11'
       - name: Validate source and release metadata
         run: ./scripts/validate-release.sh
