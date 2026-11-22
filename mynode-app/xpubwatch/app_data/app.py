@@ -10,7 +10,7 @@ from flask import Flask, abort, flash, redirect, render_template, request, sessi
 import auth
 from config import (COOKIE_SECURE, DATA_DIR, LOOKAHEAD, POLL_SECONDS, SESSION_HOURS, START_WATCHER,
                     VERSION, WEB_HOST, WEB_PORT)
-from db import add_wallet, connect, delete_wallet, get_runtime, get_setting, init_db, set_setting
+from db import add_wallet, connect, delete_wallet, get_runtime, get_setting, init_db, set_runtime, set_setting
 from notifier import explorer_url, send_test
 from wallet import SCRIPT_TYPES, address_for, inspect_key
 
@@ -30,6 +30,7 @@ MAX_NAME = 80
 
 _watcher = None
 _watcher_lock_file = None
+_telegram = None
 
 
 def _load_secret_key():
@@ -57,7 +58,7 @@ def _load_secret_key():
 
 def start_watcher_once():
     """Start the background watcher in exactly one process (file lock)."""
-    global _watcher, _watcher_lock_file
+    global _watcher, _watcher_lock_file, _telegram
     if _watcher is not None:
         return _watcher
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -68,11 +69,15 @@ def start_watcher_once():
         lock.close()
         log.info("watcher already running in another process")
         return None
+    from telegram_bot import TelegramBot
     from watcher import Watcher
 
     _watcher_lock_file = lock
     _watcher = Watcher()
     _watcher.start()
+    # Same process as the watcher (file lock): exactly one Telegram poller.
+    _telegram = TelegramBot()
+    _telegram.start()
     return _watcher
 
 
@@ -235,6 +240,8 @@ def create_app(start_watcher=START_WATCHER):
             secrets_set = {k: bool(get_setting(conn, k, "")) for k in SECRET_SETTINGS}
             for k in TOGGLE_SETTINGS:
                 settings[k] = get_setting(conn, k, "1")
+            settings["telegram_commands"] = get_setting(conn, "telegram_commands", "0")
+            telegram_error = get_runtime(conn, "telegram_error")
             pending = conn.execute(
                 "SELECT COUNT(*) FROM outbox WHERE sent_at IS NULL"
             ).fetchone()[0]
@@ -244,7 +251,7 @@ def create_app(start_watcher=START_WATCHER):
         explorer = settings.get("explorer_tx_url") or ""
         return render_template(
             "index.html", wallet_views=wallet_views, events=events, unacked=unacked,
-            settings=settings, secrets_set=secrets_set, state=_watcher_state(),
+            settings=settings, secrets_set=secrets_set, state=_watcher_state(), telegram_error=telegram_error,
             outbox_pending=pending, outbox_error=failed["last_error"] if failed else None,
             tx_link=lambda txid: explorer_url(explorer, txid), lookahead=LOOKAHEAD,
         )
@@ -354,6 +361,9 @@ def create_app(start_watcher=START_WATCHER):
                     set_setting(conn, k, new)
             for k in TOGGLE_SETTINGS:
                 set_setting(conn, k, "1" if request.form.get(k) == "1" else "0")
+            set_setting(conn, "telegram_commands", "1" if request.form.get("telegram_commands") == "1" else "0")
+            if request.form.get("telegram_commands") != "1":
+                set_runtime(conn, "telegram_error", None)
         flash("Notification settings saved", "ok")
         return redirect(url_for("index") + "#notifications")
 

@@ -47,6 +47,7 @@ MyNode → Marketplace / Community Apps → Add Application → upload `dist/xpu
 - [ ] RBF fee bump of the spend → `spend_replaced`; confirmation tracked for the new txid
 - [ ] DISARMED wallet with "Only notify for ARMED wallets" → events, no notifications
 - [ ] Test notification shows a result per configured channel
+- [ ] Enable "Answer balance queries in Telegram": `/balance`, `/balance <name>`, `/status` answer within seconds; a message from another chat gets no answer; with the same bot used elsewhere (webhook) the UI shows the conflict
 - [ ] Stop electrs for 1 minute → UI shows the Electrum error; start it → recovers without restart and without duplicate alerts
 - [ ] Notification channel unreachable during an event (e.g. wrong ntfy server) → fix it → the pending alert is delivered once
 

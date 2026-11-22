@@ -44,6 +44,9 @@ settings; see "Upgrading from 0.4" in the README.
   reproducibly by CI on tags instead of being committed.
 
 ### Added
+- Balance queries in Telegram: `/balance [name]`, `/status`, `/help`
+  (aliases `/saldo`, `/kontostand`), answered only for the configured chat;
+  long polling, no inbound port; off by default.
 - Automated test suite (BIP vectors, watcher scenarios, Electrum protocol,
   web security) running on Python 3.8 and 3.11.
 - `manage.py reset-password`.
