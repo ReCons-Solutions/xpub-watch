@@ -2,7 +2,11 @@
 
 XPUB Watch is a local, watch-only Bitcoin monitor for multiple `xpub` / `ypub` / `zpub` accounts.
 
-This directory is the MyNode Community App payload. It is packaged for **MyNode → Marketplace / Community Apps → Add Application**.
+This directory is the MyNode app folder. It is installed to `/usr/share/mynode_apps/xpubwatch` and registered with `mynode-manage-apps`:
+
+```bash
+sudo bash xpubwatch/install-on-mynode.sh
+```
 
 Security: never enter a seed phrase, private key, hardware-wallet PIN, or BIP39 passphrase.
 

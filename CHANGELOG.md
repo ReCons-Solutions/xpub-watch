@@ -44,6 +44,10 @@ settings; see "Upgrading from 0.4" in the README.
   reproducibly by CI on tags instead of being committed.
 
 ### Added
+- `install-on-mynode.sh` in the release archive: installs or upgrades the app
+  over SSH (backup, copy to /usr/share/mynode_apps, mynode-manage-apps
+  init/install, start). Current MyNode versions no longer offer the
+  "Add Application" upload page; the README describes the new procedure.
 - Automated test suite (BIP vectors, watcher scenarios, Electrum protocol,
   web security) running on Python 3.8 and 3.11.
 - `manage.py reset-password`.

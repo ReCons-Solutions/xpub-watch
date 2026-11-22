@@ -25,12 +25,17 @@ Build a local archive and install it on a test node:
 python3 scripts/build-release.py dist
 ```
 
-MyNode → Marketplace / Community Apps → Add Application → upload `dist/xpubwatch-mynode-community-app-<version>.tar.gz`.
+Copy `dist/xpubwatch-mynode-community-app-<version>.tar.gz` to the test node and install it with the bundled script (see README, "Installation on MyNode"):
+
+```bash
+scp dist/xpubwatch-mynode-community-app-<version>.tar.gz admin@<node-ip>:/tmp/
+ssh admin@<node-ip> 'cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-community-app-*.tar.gz && sudo bash xpubwatch/install-on-mynode.sh'
+```
 
 ### Clean install
 
-- [ ] Install succeeds; `journalctl -u xpubwatch -n 100 --no-pager` shows no errors
-- [ ] MyNode tile appears, Open button works (HTTP 5115 redirects to HTTPS 5116)
+- [ ] `install-on-mynode.sh` finishes with "installed and running"; `journalctl -u xpubwatch -n 100 --no-pager` shows no errors
+- [ ] MyNode tile appears (and the app under Apps), Open button works (HTTP 5115 redirects to HTTPS 5116)
 - [ ] First visit shows "Set an access password"; password is set; logout/login works
 - [ ] 6 wrong passwords → "Too many failed attempts"
 - [ ] Electrum shows OK, tip height matches MyNode
@@ -60,7 +65,9 @@ MyNode → Marketplace / Community Apps → Add Application → upload `dist/xpu
 ### Upgrade from 0.4.0-beta.1
 
 - [ ] Back up `/mnt/hdd/mynode/xpubwatch`
-- [ ] Install 0.5 over 0.4 with existing wallets and events
+- [ ] Install 0.5 over 0.4 with existing wallets and events; the script creates `/mnt/hdd/mynode/xpubwatch-backup-<date>`
+- [ ] Running the script a second time (same version) reinstalls cleanly
+- [ ] Uninstall under Apps works; the data folder is kept
 - [ ] Password setup appears; afterwards all wallets, balances and old events are present
 - [ ] No notification burst after the upgrade (one `sync` event per wallet)
 - [ ] `cat /home/bitcoin/.mynode/xpubwatch_version` shows the new version
