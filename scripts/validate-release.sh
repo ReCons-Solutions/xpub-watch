@@ -18,6 +18,10 @@ assert data["requires_bitcoin"] is True
 print("metadata OK (%s)" % version)
 PY
 
+if grep -RInE --exclude-dir=.git '^(<<<<<<< |>>>>>>> )' "$ROOT"; then
+  echo "Unresolved merge conflict markers" >&2; exit 1
+fi
+
 grep -q "^## \[$VERSION\]" "$ROOT/CHANGELOG.md" || { echo "CHANGELOG.md has no entry for $VERSION" >&2; exit 1; }
 
 # Reject common accidental secret/test-data patterns.
