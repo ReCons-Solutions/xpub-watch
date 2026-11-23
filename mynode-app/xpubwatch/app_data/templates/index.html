@@ -83,6 +83,15 @@
       {% if settings.telegram_commands == '1' and telegram_error %}<div class="alert error">{{ telegram_error }}</div>{% endif %}
       <label>Transaction explorer URL <input name="explorer_tx_url" value="{{ settings.explorer_tx_url }}" placeholder="https://mempool.space/tx/"></label>
       <p class="muted">Use a base ending in <code>/tx/</code> or a template containing <code>{txid}</code>, e.g. your node's own mempool instance. The link is only opened when you tap it.</p>
+      <fieldset class="notification-types stack">
+        <legend>Outage alarm (dead man's switch)</legend>
+        <p class="muted">XPUB Watch cannot report that it is not running. Enter the ping URL of an external monitor (e.g. healthchecks.io, an Uptime Kuma push monitor or Cronitor). XPUB Watch calls it at most once a minute after every successful scan; when the node, the service or Electrum stops, the pings stop and that service alerts you (Telegram, e-mail, ...). Set its period to about 5 minutes. The URL is stored like a token and not shown again.</p>
+        {% with key='heartbeat_url', label='Ping URL' %}{% include "_secret.html" %}{% endwith %}
+        {% if secrets_set.heartbeat_url %}
+          {% if heartbeat_state.error %}<div class="alert error">{{ heartbeat_state.error }}</div>
+          {% elif heartbeat_state.ok_at %}<p class="muted">Last ping: {{ heartbeat_state.ok_at|ts }}</p>{% endif %}
+        {% endif %}
+      </fieldset>
       <fieldset class="notification-types">
         <legend>Alert types</legend>
         <label class="check"><input type="checkbox" name="notify_receive" value="1" {% if settings.notify_receive == '1' %}checked{% endif %}> Receive alerts (incl. dropped incoming transactions)</label>

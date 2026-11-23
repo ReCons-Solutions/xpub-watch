@@ -5,6 +5,7 @@ import time
 
 import ledger
 import notifier
+from heartbeat import Heartbeat
 from config import ELECTRUM_HOST, ELECTRUM_PORT, ELECTRUM_TIMEOUT, LOOKAHEAD, POLL_SECONDS
 from db import connect, event, set_runtime
 from electrum_client import ElectrumClient
@@ -36,6 +37,7 @@ class Watcher(threading.Thread):
         self.tip_height = None
         self.consecutive_errors = 0
         self._parsed = {}  # txid -> parsed tx (in-memory cache over tx_cache)
+        self.heartbeat = Heartbeat()
 
     def stop(self):
         self.stop_event.set()
@@ -48,6 +50,8 @@ class Watcher(threading.Thread):
                 self.consecutive_errors = 0
                 self.last_error = None
                 self.last_scan = int(time.time())
+                # Only a complete scan counts as "alive": Electrum outages stop the pings too.
+                self.heartbeat.after_successful_scan()
             except Exception as exc:
                 self.consecutive_errors += 1
                 # Avoid a red health banner for a single transient local electrs stall.

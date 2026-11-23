@@ -32,9 +32,22 @@ if [ "$1" = install ] || [ "$1" = reinstall ]; then
   if [ -n "$FAIL_INSTALL" ]; then echo error > {vfile}; else cat {apps}/xpubwatch/app_data/VERSION > {vfile}; fi
 fi
 """)
+    data = hdd / "xpubwatch"
+    # systemctl stub: "restart" behaves like the app starting (creates the database).
     (bin_dir / "systemctl").write_text(f"""#!/bin/bash
 echo "systemctl $*" >> {log}
 [ "$1" = is-active ] && [ -n "$SERVICE_DOWN" ] && exit 3
+if [ "$1" = restart ] && [ -z "$NO_DB" ]; then
+  mkdir -p {data}
+  python3 - <<'PY'
+import os, sqlite3
+c = sqlite3.connect("{data}/xpubwatch.db")
+c.execute("CREATE TABLE IF NOT EXISTS wallets (id INTEGER PRIMARY KEY, name TEXT)")
+if os.environ.get("SHRINK"):
+    c.execute("DELETE FROM wallets")
+c.commit()
+PY
+fi
 exit 0
 """)
     for f in bin_dir.iterdir():
@@ -74,19 +87,23 @@ def test_fresh_install(node):
                            "systemctl restart xpubwatch", "systemctl is-active --quiet xpubwatch",
                            "systemctl is-active --quiet xpubwatch"]
     assert "installed and running" in r.stdout and ":5116" in r.stdout
+    assert "Existing data: none (new installation)" in r.stdout
+    assert "Data after installation: 0 wallet(s)" in r.stdout
     assert not list(node["hdd"].glob("xpubwatch-backup-*")), "nothing to back up on a fresh install"
 
 
 def test_upgrade_backs_up_and_same_version_reinstalls(node):
     data = node["hdd"] / "xpubwatch"
     data.mkdir()
-    (data / "xpubwatch.db").write_text("db")
+    make_db(data, 3)
     node["vfile"].write_text("0.4.0-beta.1\n")
     (node["apps"] / "xpubwatch").mkdir()
     (node["apps"] / "xpubwatch" / "stale-file").write_text("x")
-    assert run(node).returncode == 0
+    r = run(node)
+    assert r.returncode == 0, r.stderr
+    assert "Existing data: 3 wallet(s)" in r.stdout and "Data after installation: 3 wallet(s)" in r.stdout
     backups = list(node["hdd"].glob("xpubwatch-backup-*"))
-    assert len(backups) == 1 and (backups[0] / "xpubwatch.db").read_text() == "db"
+    assert len(backups) == 1 and (backups[0] / "xpubwatch.db").exists()
     assert not (node["apps"] / "xpubwatch" / "stale-file").exists()
     assert "systemctl stop xpubwatch" in calls(node) and "manage install xpubwatch" in calls(node)
     node["log"].unlink()
@@ -111,3 +128,43 @@ def test_refuses_without_mynode(node, tmp_path):
     shutil.rmtree(node["apps"])
     r = run(node)
     assert r.returncode == 1 and "does not support dynamic apps" in r.stderr
+
+
+def make_db(folder, wallets):
+    import sqlite3
+
+    c = sqlite3.connect(str(folder / "xpubwatch.db"))
+    c.execute("CREATE TABLE wallets (id INTEGER PRIMARY KEY, name TEXT)")
+    c.executemany("INSERT INTO wallets(name) VALUES (?)", [("w%d" % i,) for i in range(wallets)])
+    c.commit()
+    c.close()
+
+
+def test_installed_version_without_database_warns(node):
+    """The situation found on a real node: 0.3.9 installed, data folder empty."""
+    (node["hdd"] / "xpubwatch").mkdir()
+    node["vfile"].write_text("0.3.9\n")
+    r = run(node)
+    assert r.returncode == 0, r.stderr
+    assert "XPUB Watch 0.3.9 is installed, but" in r.stderr and "added again" in r.stderr
+
+
+def test_lost_wallets_abort(node):
+    data = node["hdd"] / "xpubwatch"
+    data.mkdir()
+    make_db(data, 2)
+    node["vfile"].write_text("0.4.0-beta.1\n")
+    r = run(node, SHRINK="1")
+    assert r.returncode == 1
+    assert "now has 0 wallet(s), before the update it had 2" in r.stderr and "xpubwatch-backup-" in r.stderr
+
+
+def test_database_not_created_is_reported(node):
+    r = run(node, NO_DB="1")
+    assert r.returncode == 1 and "was not created (none)" in r.stderr
+
+
+def test_service_heals_data_folder_permissions():
+    unit = (APP / "xpubwatch.service").read_text()
+    pre = [l for l in unit.splitlines() if l.startswith("ExecStartPre=+")]
+    assert pre and "chown -R bitcoin:bitcoin /mnt/hdd/mynode/xpubwatch" in pre[0] and "mkdir -p" in pre[0]
