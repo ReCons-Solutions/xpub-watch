@@ -85,11 +85,26 @@ git push origin main v0.5.0-beta.1
 
 The `Release` workflow verifies that the tag matches `VERSION`, runs the tests and validation, builds the archive reproducibly and publishes a GitHub release with the archive and `SHA256SUMS`. Versions containing `-` are published as pre-release.
 
+Every build handed to a tester gets its own version (`scripts/set-version.sh 0.5.0-beta.2`): two different archives with the same version cannot be told apart on the node.
+
 ## 5. Test the published asset
 
 Download the archive from the GitHub release, check it with `sha256sum -c SHA256SUMS`, and repeat the clean-install section on a node with the downloaded file (not a local build).
 
-## 6. Submit to MyNode
+## 6. Path to 1.0.0
+
+The first stable release is **1.0.0** (no 0.5.0 final).
+
+| Step | Version | Gate |
+|---|---|---|
+| 1 | `0.5.0-beta.1` | field test §3 complete incl. a real small spend; PR #1 merged; tag |
+| 2 | `0.5.0-beta.N` | 14 days continuous operation without an incident: no missed or duplicate alert, no crash, no unexplained DOWN on the outage monitor; fixes only |
+| 3 | `1.0.0-rc.1` | installed as an upgrade with `deploy-to-mynode.sh`: wallet count unchanged; restore from a backup tried once |
+| 4 | `1.0.0` | 7 days on the release candidate without a finding; no open bug affecting alerts or data |
+
+For 1.0.0: README status "stable" (keep "not independently security-audited"), `CHANGELOG.md` section `[1.0.0]`, release notes with upgrade instructions.
+
+## 7. Submit to MyNode
 
 After the beta has been tested by multiple users, open an issue in the MyNode repository proposing XPUB Watch for the official Marketplace. Include:
 
