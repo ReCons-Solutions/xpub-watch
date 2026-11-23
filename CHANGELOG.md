@@ -49,6 +49,8 @@ settings; see "Upgrading from 0.4" in the README.
   reproducibly by CI on tags instead of being committed.
 
 ### Added
+- `deploy-to-mynode.sh` / `.ps1`: verify, copy and install from your computer
+  in one step.
 - Outage alarm: optional ping URL of an external monitor (healthchecks.io,
   Uptime Kuma, Cronitor), requested after every successful scan.
 - `install-on-mynode.sh` in the release archive: installs or upgrades the app

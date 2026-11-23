@@ -9,6 +9,7 @@ import gzip
 import hashlib
 import io
 import os
+import shutil
 import sys
 import tarfile
 
@@ -68,6 +69,11 @@ def build(out_dir):
         digest = hashlib.sha256(f.read()).hexdigest()
     with open(os.path.join(out_dir, "SHA256SUMS"), "w", encoding="utf-8") as f:
         f.write("%s  %s\n" % (digest, name))
+    # Helpers for the computer of the user, published next to the archive.
+    for helper in ("deploy-to-mynode.sh", "deploy-to-mynode.ps1"):
+        dst = os.path.join(out_dir, helper)
+        shutil.copyfile(os.path.join(ROOT, "scripts", helper), dst)
+        os.chmod(dst, 0o755 if helper.endswith(".sh") else 0o644)
     print(path)
     print("sha256 %s" % digest)
     return path

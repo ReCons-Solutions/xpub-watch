@@ -38,5 +38,5 @@ jobs:
         run: |
           PRERELEASE=""
           case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS \
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/deploy-to-mynode.sh dist/deploy-to-mynode.ps1 \
             --title "XPUB Watch $VERSION" --notes-file notes.md $PRERELEASE

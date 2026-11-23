@@ -89,7 +89,18 @@ Current MyNode versions no longer have an "Add Application" upload page in the w
    sha256sum -c SHA256SUMS
    ```
 
-2. Copy the archive to the node (from your computer; Windows: PowerShell):
+2. **Quick way:** put `deploy-to-mynode.sh` (macOS/Linux) or `deploy-to-mynode.ps1` (Windows) from the release next to the archive and run it. It verifies the checksum, copies the archive to the node, runs the installer (step 3) and removes the copy afterwards:
+
+   ```bash
+   ./deploy-to-mynode.sh                                   # newest archive, admin@mynode.local
+   ./deploy-to-mynode.sh <archive> admin@<node-ip>         # explicit; add --no-backup if wanted
+   ```
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File deploy-to-mynode.ps1 -Target admin@<node-ip>
+   ```
+
+   Manual way: copy the archive to the node (from your computer; Windows: PowerShell):
 
    ```bash
    scp xpubwatch-mynode-community-app-<version>.tar.gz admin@<node-ip>:/tmp/
