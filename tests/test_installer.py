@@ -80,7 +80,7 @@ def test_fresh_install(node):
     r = run(node)
     assert r.returncode == 0, r.stderr + r.stdout
     target = node["apps"] / "xpubwatch"
-    assert (target / "xpubwatch.json").exists() and (target / "app_data" / "watcher.py").exists()
+    assert (target / "xpubwatch.json").exists() and (target / "app_data" / "telegram_bot.py").exists()
     assert (target / "is_manually_added").exists()
     assert not (target / "install-on-mynode.sh").exists()
     assert calls(node) == ["manage init", "manage install xpubwatch", "systemctl enable xpubwatch",

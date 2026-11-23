@@ -53,6 +53,9 @@ settings; see "Upgrading from 0.4" in the README.
   in one step.
 - Outage alarm: optional ping URL of an external monitor (healthchecks.io,
   Uptime Kuma, Cronitor), requested after every successful scan.
+- Balance queries in Telegram: `/balance [name]`, `/status`, `/help`
+  (aliases `/saldo`, `/kontostand`), answered only for the configured chat;
+  long polling, no inbound port; off by default.
 - `install-on-mynode.sh` in the release archive: installs or upgrades the app
   over SSH (backup, copy to /usr/share/mynode_apps, mynode-manage-apps
   init/install, start). Current MyNode versions no longer offer the

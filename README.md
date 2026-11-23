@@ -176,6 +176,19 @@ The first scan records existing funds and history silently and logs one `sync` e
 
 DISARMED wallets record the same events with severity `warning` instead of `critical`; with "Only notify for ARMED wallets" they send no notifications.
 
+## Balance queries in Telegram
+
+With **Answer balance queries in Telegram** enabled (Notifications section, off by default), the bot answers commands sent from the configured chat:
+
+| Command | Answer |
+|---|---|
+| `/balance` (aliases `/saldo`, `/kontostand`) | balance of every wallet (confirmed, unconfirmed, UTXO count), total, time of the last scan and block height |
+| `/balance <name>` | only wallets whose name contains `<name>` |
+| `/status` | wallets armed, unacknowledged events, pending notifications, watcher errors |
+| `/help` | list of commands |
+
+The node polls Telegram (`getUpdates`), so no port has to be opened. Messages from other chats are ignored; in a group chat every member of the group can ask. Commands older than five minutes (e.g. sent while the node was offline) are not answered. A Telegram bot delivers commands to one program only: use a separate bot for every installation (for example one for the node and one for XPUB Watch for WordPress), otherwise the UI shows a conflict.
+
 Notifications are written to an outbox in the same database transaction as the event and delivered afterwards. Failed channels are retried with backoff (up to 10 attempts) without duplicating messages on channels that already succeeded.
 
 ## Telegram setup

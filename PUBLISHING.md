@@ -52,6 +52,7 @@ ssh admin@<node-ip> 'cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-com
 - [ ] RBF fee bump of the spend → `spend_replaced`; confirmation tracked for the new txid
 - [ ] DISARMED wallet with "Only notify for ARMED wallets" → events, no notifications
 - [ ] Test notification shows a result per configured channel
+- [ ] Enable "Answer balance queries in Telegram": `/balance`, `/balance <name>`, `/status` answer within seconds; a message from another chat gets no answer; with the same bot used elsewhere (webhook) the UI shows the conflict
 - [ ] Outage alarm: healthchecks.io check (period 5 min), ping URL saved → "test ping sent", check turns green; `sudo systemctl stop xpubwatch` → alert from healthchecks.io after period + grace; start again → check recovers
 - [ ] `sudo chown root:root /mnt/hdd/mynode/xpubwatch && sudo systemctl restart xpubwatch` → service starts, folder owned by bitcoin again
 - [ ] Stop electrs for 1 minute → UI shows the Electrum error; start it → recovers without restart and without duplicate alerts
