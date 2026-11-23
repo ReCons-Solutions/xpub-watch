@@ -40,6 +40,9 @@ test -s "$APP/app_data/static/xpubwatch-logo.png"
 test -x "$APP/scripts/install_xpubwatch.sh"
 test -x "$APP/install-on-mynode.sh"
 bash -n "$APP/install-on-mynode.sh"
+test -x scripts/deploy-to-mynode.sh
+bash -n scripts/deploy-to-mynode.sh
+test -f scripts/deploy-to-mynode.ps1
 
 # Build twice: the archive must be reproducible and contain the payload.
 OUT1="$(mktemp -d)"; OUT2="$(mktemp -d)"
