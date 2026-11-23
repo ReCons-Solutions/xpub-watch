@@ -10,14 +10,15 @@ from flask import Flask, abort, flash, redirect, render_template, request, sessi
 import auth
 from config import (COOKIE_SECURE, DATA_DIR, LOOKAHEAD, POLL_SECONDS, SESSION_HOURS, START_WATCHER,
                     VERSION, WEB_HOST, WEB_PORT)
-from db import add_wallet, connect, delete_wallet, get_runtime, get_setting, init_db, set_setting
+from db import add_wallet, connect, delete_wallet, get_runtime, get_setting, init_db, set_runtime, set_setting
+from heartbeat import ping as heartbeat_ping
 from notifier import explorer_url, send_test
 from wallet import SCRIPT_TYPES, address_for, inspect_key
 
 log = logging.getLogger("xpubwatch.web")
 
 URL_SETTINGS = ("ntfy_server", "gotify_server", "explorer_tx_url")
-SECRET_SETTINGS = ("ntfy_token", "gotify_token", "telegram_bot_token")
+SECRET_SETTINGS = ("ntfy_token", "gotify_token", "telegram_bot_token", "heartbeat_url")
 PLAIN_SETTINGS = ("ntfy_topic", "telegram_chat_id")
 TOGGLE_SETTINGS = ("notify_receive", "notify_spend", "notify_confirmation", "notify_armed_only")
 PUBLIC_ENDPOINTS = {"login", "setup", "health", "static"}
@@ -233,6 +234,7 @@ def create_app(start_watcher=START_WATCHER):
             unacked = conn.execute("SELECT COUNT(*) FROM events WHERE acknowledged=0").fetchone()[0]
             settings = {k: get_setting(conn, k, "") for k in URL_SETTINGS + PLAIN_SETTINGS}
             secrets_set = {k: bool(get_setting(conn, k, "")) for k in SECRET_SETTINGS}
+            heartbeat_state = {"error": get_runtime(conn, "heartbeat_error"), "ok_at": get_runtime(conn, "heartbeat_ok_at")}
             for k in TOGGLE_SETTINGS:
                 settings[k] = get_setting(conn, k, "1")
             pending = conn.execute(
@@ -244,7 +246,7 @@ def create_app(start_watcher=START_WATCHER):
         explorer = settings.get("explorer_tx_url") or ""
         return render_template(
             "index.html", wallet_views=wallet_views, events=events, unacked=unacked,
-            settings=settings, secrets_set=secrets_set, state=_watcher_state(),
+            settings=settings, secrets_set=secrets_set, state=_watcher_state(), heartbeat_state=heartbeat_state,
             outbox_pending=pending, outbox_error=failed["last_error"] if failed else None,
             tx_link=lambda txid: explorer_url(explorer, txid), lookahead=LOOKAHEAD,
         )
@@ -346,15 +348,30 @@ def create_app(start_watcher=START_WATCHER):
         with connect() as conn:
             for k, v in values.items():
                 set_setting(conn, k, v)
+            new_heartbeat = None
             for k in SECRET_SETTINGS:
                 new = request.form.get(k, "").strip()
                 if request.form.get("clear_" + k) == "1":
                     set_setting(conn, k, "")
+                    if k == "heartbeat_url":
+                        set_runtime(conn, "heartbeat_error", None)
+                        set_runtime(conn, "heartbeat_ok_at", None)
                 elif new:
+                    if k == "heartbeat_url":
+                        if not new.startswith(("https://", "http://")):
+                            flash("The outage alarm URL must start with https:// or http://", "error")
+                            continue
+                        new_heartbeat = new
                     set_setting(conn, k, new)
             for k in TOGGLE_SETTINGS:
                 set_setting(conn, k, "1" if request.form.get(k) == "1" else "0")
         flash("Notification settings saved", "ok")
+        if new_heartbeat:
+            try:
+                heartbeat_ping(new_heartbeat)
+                flash("Outage alarm: test ping sent. From now on XPUB Watch pings after every successful scan.", "ok")
+            except Exception as exc:
+                flash("Outage alarm: test ping failed: %s" % exc, "error")
         return redirect(url_for("index") + "#notifications")
 
     @app.post("/settings/test")

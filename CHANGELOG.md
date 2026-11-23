@@ -18,6 +18,11 @@ settings; see "Upgrading from 0.4" in the README.
 - Database and data directory restricted to the service user.
 
 ### Fixed
+- The service repairs the ownership of its data folder before every start;
+  a folder recreated as root kept 0.3.9 in a restart loop without alerts.
+- The installer reports the number of wallets before and after an update,
+  warns when an installed version has no database and stops when wallets
+  went missing.
 - Duplicate SPEND alerts when a later part of a scan failed (rollback after
   the notification had been sent).
 - A dropped or replaced spend re-announced the UTXO as a new receive.
@@ -44,6 +49,8 @@ settings; see "Upgrading from 0.4" in the README.
   reproducibly by CI on tags instead of being committed.
 
 ### Added
+- Outage alarm: optional ping URL of an external monitor (healthchecks.io,
+  Uptime Kuma, Cronitor), requested after every successful scan.
 - `install-on-mynode.sh` in the release archive: installs or upgrades the app
   over SSH (backup, copy to /usr/share/mynode_apps, mynode-manage-apps
   init/install, start). Current MyNode versions no longer offer the

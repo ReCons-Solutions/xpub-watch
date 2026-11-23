@@ -103,7 +103,7 @@ Current MyNode versions no longer have an "Add Application" upload page in the w
    sudo bash xpubwatch/install-on-mynode.sh
    ```
 
-   The script backs up an existing data folder (`/mnt/hdd/mynode/xpubwatch-backup-<date>`), copies the app to `/usr/share/mynode_apps/xpubwatch`, runs `mynode-manage-apps init` and `install` (or `reinstall` for the same version), enables and starts the service and prints the address of the web UI. `--no-backup` skips the backup.
+   The script backs up an existing data folder (`/mnt/hdd/mynode/xpubwatch-backup-<date>`) and prints how many wallets the database contains before and after the installation. It warns when an installed version has no database, and stops when wallets went missing. It copies the app to `/usr/share/mynode_apps/xpubwatch`, runs `mynode-manage-apps init` and `install` (or `reinstall` for the same version), enables and starts the service and prints the address of the web UI. `--no-backup` skips the backup.
 
 4. Open `https://<node-ip>:5116` or the XPUB Watch tile on the MyNode dashboard.
 
@@ -263,6 +263,18 @@ sudo -u bitcoin XPUBWATCH_DATA_DIR=/mnt/hdd/mynode/xpubwatch \
 ```
 
 Then open XPUB Watch and set a new password immediately.
+
+## Outage alarm (dead man's switch)
+
+XPUB Watch cannot tell you that it is not running – a stopped node, a crashed service or a broken Electrum server would simply stay silent. Under **Notifications → Outage alarm** enter the ping URL of an external monitor:
+
+- [healthchecks.io](https://healthchecks.io) (free tier, alerts via Telegram, e-mail and more): create a check with period 5 minutes and grace time 5 minutes, copy its ping URL
+- Uptime Kuma (self-hosted, e.g. on another machine): a monitor of type *Push*, copy its push URL
+- Cronitor or any service that alerts when an expected HTTP request does not arrive
+
+XPUB Watch requests the URL after every **successful** scan, at most once a minute. A scan only counts as successful when Electrum answered, so an Electrum outage triggers the alarm as well. Saving a new URL sends a test ping. The URL is stored like a token and not shown again. The monitor runs outside your node, so the service learns your node's public IP address and that it is alive – nothing about wallets.
+
+The service unit also repairs the ownership of `/mnt/hdd/mynode/xpubwatch` before every start (a data folder recreated as `root` once kept an installation in a restart loop for days).
 
 ## Uninstall
 

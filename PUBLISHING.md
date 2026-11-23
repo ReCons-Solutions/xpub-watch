@@ -52,6 +52,8 @@ ssh admin@<node-ip> 'cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-com
 - [ ] RBF fee bump of the spend → `spend_replaced`; confirmation tracked for the new txid
 - [ ] DISARMED wallet with "Only notify for ARMED wallets" → events, no notifications
 - [ ] Test notification shows a result per configured channel
+- [ ] Outage alarm: healthchecks.io check (period 5 min), ping URL saved → "test ping sent", check turns green; `sudo systemctl stop xpubwatch` → alert from healthchecks.io after period + grace; start again → check recovers
+- [ ] `sudo chown root:root /mnt/hdd/mynode/xpubwatch && sudo systemctl restart xpubwatch` → service starts, folder owned by bitcoin again
 - [ ] Stop electrs for 1 minute → UI shows the Electrum error; start it → recovers without restart and without duplicate alerts
 - [ ] Notification channel unreachable during an event (e.g. wrong ntfy server) → fix it → the pending alert is delivered once
 
@@ -66,7 +68,7 @@ ssh admin@<node-ip> 'cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-com
 
 - [ ] Back up `/mnt/hdd/mynode/xpubwatch`
 - [ ] Install 0.5 over 0.4 with existing wallets and events; the script creates `/mnt/hdd/mynode/xpubwatch-backup-<date>`
-- [ ] Running the script a second time (same version) reinstalls cleanly
+- [ ] Running the script a second time (same version) reinstalls cleanly and reports the same wallet count before and after
 - [ ] Uninstall under Apps works; the data folder is kept
 - [ ] Password setup appears; afterwards all wallets, balances and old events are present
 - [ ] No notification burst after the upgrade (one `sync` event per wallet)

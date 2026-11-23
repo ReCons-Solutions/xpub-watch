@@ -32,6 +32,18 @@ for arg in "$@"; do
 done
 
 step() { printf '\n==> %s\n' "$*"; }
+warn() { printf '\nWARNING: %s\n' "$*" >&2; }
+
+# Number of wallets in the database, "none" without database, "unreadable" on errors.
+wallet_count() {
+  local db="$DATA_DIR/xpubwatch.db"
+  [ -f "$db" ] || { echo none; return; }
+  python3 - "$db" <<'PY' 2>/dev/null || echo unreadable
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1], timeout=10)
+print(c.execute("SELECT COUNT(*) FROM wallets").fetchone()[0])
+PY
+}
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || [ -n "${XPUBW_APPS_DIR:-}" ] || die "Run with sudo: sudo bash $0"
@@ -43,6 +55,20 @@ command -v "$MANAGE" >/dev/null 2>&1 || die "'mynode-manage-apps' not found. Is 
 VERSION="$(tr -d '[:space:]' < "$SRC/app_data/VERSION")"
 INSTALLED="$(tr -d '[:space:]' < "$VERSION_FILE" 2>/dev/null || true)"
 echo "XPUB Watch $VERSION (installed: ${INSTALLED:-none})"
+
+BEFORE="$(wallet_count)"
+case "$BEFORE" in
+  none)
+    if [ -n "$INSTALLED" ]; then
+      warn "XPUB Watch ${INSTALLED} is installed, but $DATA_DIR/xpubwatch.db does not exist.
+         The previous installation has no data here (it may not have been running).
+         Wallets have to be added again after this installation."
+    else
+      echo "Existing data: none (new installation)"
+    fi ;;
+  unreadable) warn "$DATA_DIR/xpubwatch.db exists but cannot be read. It is backed up and kept." ;;
+  *) echo "Existing data: $BEFORE wallet(s) in $DATA_DIR/xpubwatch.db" ;;
+esac
 
 if [ -d "$DATA_DIR" ] && [ "$NO_BACKUP" -eq 0 ]; then
   BACKUP="${DATA_DIR}-backup-$(date +%Y%m%d-%H%M%S)"
@@ -82,6 +108,20 @@ for _ in $(seq 1 "$WAIT"); do
   sleep 1
 done
 "$SYSTEMCTL" is-active --quiet "$APP" || die "The service did not start. Details: sudo journalctl -u $APP -n 100 --no-pager"
+
+AFTER="unknown"
+for _ in $(seq 1 "$WAIT"); do
+  AFTER="$(wallet_count)"
+  case "$AFTER" in none|unreadable) sleep 1 ;; *) break ;; esac
+done
+case "$AFTER" in
+  none|unreadable)
+    die "The service runs, but $DATA_DIR/xpubwatch.db was not created (${AFTER}). Check: sudo ls -la $DATA_DIR ; sudo journalctl -u $APP -n 100 --no-pager" ;;
+esac
+if [[ "$BEFORE" =~ ^[0-9]+$ ]] && [ "$AFTER" -lt "$BEFORE" ]; then
+  die "The database now has $AFTER wallet(s), before the update it had $BEFORE. Do not change anything; the backup is in ${BACKUP:-(no backup)}."
+fi
+echo "Data after installation: $AFTER wallet(s)"
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 cat <<EOF
