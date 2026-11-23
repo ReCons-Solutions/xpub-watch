@@ -8,9 +8,9 @@ XPUB Watch is a local, watch-only Bitcoin monitoring application for MyNode. It 
 
 ## Status
 
-**v0.4.0-beta.1** — public beta candidate based on the tested 0.3.9 MyNode build.
+**v0.5.0-beta.1** — hardening release (authentication, transaction ledger, notification outbox, persistent Electrum connection). See [CHANGELOG.md](CHANGELOG.md).
 
-The core receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Community App installation and Telegram notification flows have been tested on a MyNode installation. See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
+The 0.4 receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode installation and Telegram notification flows were field-tested on MyNode. 0.5 is covered by an automated test suite and needs the same field test before it replaces 0.4 (see [PUBLISHING.md](PUBLISHING.md)). See [Known limitations](#known-limitations) before exposing the web UI beyond a trusted local network.
 
 ## Features
 
@@ -26,6 +26,9 @@ The core receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Co
 - Spend detection from the mempool
 - Spending transaction ID resolution
 - Confirmation counting
+- Detection of replaced (RBF) and dropped transactions
+- Silent initial sync of funded wallets
+- Password-protected web UI with CSRF protection
 - ARMED / DISARMED state per wallet
 - Telegram notifications
 - Optional ntfy / Gotify notifications
@@ -33,7 +36,7 @@ The core receive, spend, mempool, confirmation-tracking, multi-wallet, MyNode Co
 - Optional "ARMED wallets only" notifications
 - Local SQLite persistence
 - Local Electrum Server usage — no public blockchain API required
-- MyNode Community App package
+- MyNode app package with a one-command installer
 
 ## Architecture
 
@@ -71,26 +74,63 @@ XPUB Watch never needs signing keys. The extended public key is sensitive privac
 
 ## Requirements
 
-- MyNode with dynamic / Community App support
+- MyNode with dynamic app support (`/usr/share/mynode_apps`, `mynode-manage-apps`) and SSH access
 - Bitcoin Core synced
 - Electrum Server (`electrs`) installed and running
 - Network access from MyNode for optional Telegram / ntfy / Gotify notifications
 
 ## Installation on MyNode
 
-Download the Community App archive from the GitHub Release and install it through:
+Current MyNode versions no longer have an "Add Application" upload page in the web interface. Apps that are not part of MyNode are installed over SSH into MyNode's app folder (`/usr/share/mynode_apps`) and registered with `mynode-manage-apps` – the same way MyNode's own developer tooling installs apps on a device. The release archive contains a script that does all of it.
 
-```text
-MyNode → Marketplace / Community Apps → Add Application
+1. Download `xpubwatch-mynode-community-app-<version>.tar.gz` and `SHA256SUMS` from the GitHub release and verify the archive:
+
+   ```bash
+   sha256sum -c SHA256SUMS
+   ```
+
+2. **Quick way:** put `deploy-to-mynode.sh` (macOS/Linux) or `deploy-to-mynode.ps1` (Windows) from the release next to the archive and run it. It verifies the checksum, copies the archive to the node, runs the installer (step 3) and removes the copy afterwards:
+
+   ```bash
+   ./deploy-to-mynode.sh                                   # newest archive, admin@mynode.local
+   ./deploy-to-mynode.sh <archive> admin@<node-ip>         # explicit; add --no-backup if wanted
+   ```
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File deploy-to-mynode.ps1 -Target admin@<node-ip>
+   ```
+
+   Manual way: copy the archive to the node (from your computer; Windows: PowerShell):
+
+   ```bash
+   scp xpubwatch-mynode-community-app-<version>.tar.gz admin@<node-ip>:/tmp/
+   ```
+
+3. Log in and run the installer:
+
+   ```bash
+   ssh admin@<node-ip>
+   cd /tmp && rm -rf xpubwatch && tar xzf xpubwatch-mynode-community-app-<version>.tar.gz
+   sudo bash xpubwatch/install-on-mynode.sh
+   ```
+
+   The script backs up an existing data folder (`/mnt/hdd/mynode/xpubwatch-backup-<date>`) and prints how many wallets the database contains before and after the installation. It warns when an installed version has no database, and stops when wallets went missing. It copies the app to `/usr/share/mynode_apps/xpubwatch`, runs `mynode-manage-apps init` and `install` (or `reinstall` for the same version), enables and starts the service and prints the address of the web UI. `--no-backup` skips the backup.
+
+4. Open `https://<node-ip>:5116` or the XPUB Watch tile on the MyNode dashboard.
+
+Manual equivalent of step 3:
+
+```bash
+sudo cp -a /mnt/hdd/mynode/xpubwatch /mnt/hdd/mynode/xpubwatch-backup-$(date +%F)   # if it exists
+sudo rm -rf /usr/share/mynode_apps/xpubwatch && sudo cp -a /tmp/xpubwatch /usr/share/mynode_apps/xpubwatch
+sudo mynode-manage-apps init
+sudo mynode-manage-apps install xpubwatch          # same version again: reinstall
+sudo systemctl enable --now xpubwatch
 ```
 
-Upload:
+XPUB Watch appears as a dashboard tile and under Apps, not in the Marketplace list.
 
-```text
-xpubwatch-mynode-community-app-0.4.0-beta.1.tar.gz
-```
-
-After installation open XPUB Watch from the MyNode dashboard.
+After installation open XPUB Watch from the MyNode dashboard and **set the access password immediately**. Until a password is set, anyone who can reach the page could set it.
 
 Persistent application data is stored at:
 
@@ -108,15 +148,48 @@ Application code is installed at:
 
 Use an **account-level extended public key**, not a seed.
 
-Select the matching script type:
+Network and script type are taken from the key prefix where possible:
 
-| Key / wallet type | XPUB Watch script type | Typical address |
+| Key prefix | Script type | Typical address |
 |---|---|---|
-| BIP84 | Native SegWit | `bc1q...` |
-| BIP49 | Nested SegWit | `3...` |
-| BIP44 | Legacy | `1...` |
+| `zpub` / `vpub` | Native SegWit (BIP84) — automatic | `bc1q...` |
+| `ypub` / `upub` | Nested SegWit (BIP49) — automatic | `3...` |
+| `xpub` / `tpub` | select explicitly (BIP84, BIP49 or BIP44) | depends |
 
-After adding a wallet, verify several derived receive addresses against the source wallet before relying on alerts.
+A selection that contradicts the prefix, a key that is already watched, private keys and multisig keys (`Ypub`/`Zpub`) are rejected.
+
+After adding a wallet, the UI shows the first receive address. Verify it and several further derived addresses against the source wallet before relying on alerts.
+
+The first scan records existing funds and history silently and logs one `sync` event. Alerts start with the next change.
+
+## Alert types
+
+| Event | Meaning | Severity (ARMED) | Toggle |
+|---|---|---|---|
+| `receive` | new output to a wallet address | info | Receive alerts |
+| `receive_dropped` | an incoming transaction disappeared (dropped, replaced or reorganised) | warning | Receive alerts |
+| `spend` | a known UTXO is spent (mempool or confirmed) | critical | Spend alerts |
+| `spend_replaced` | the spending transaction was replaced (RBF / conflict) | critical | Spend alerts |
+| `spend_reverted` | the spending transaction disappeared; the UTXO is unspent again | warning | Spend alerts |
+| `spend_confirmed` | the spending transaction got its first confirmation | critical | Spend confirmation alerts |
+| `sync` | initial sync of a wallet finished | info | (no notification) |
+
+DISARMED wallets record the same events with severity `warning` instead of `critical`; with "Only notify for ARMED wallets" they send no notifications.
+
+## Balance queries in Telegram
+
+With **Answer balance queries in Telegram** enabled (Notifications section, off by default), the bot answers commands sent from the configured chat:
+
+| Command | Answer |
+|---|---|
+| `/balance` (aliases `/saldo`, `/kontostand`) | balance of every wallet (confirmed, unconfirmed, UTXO count), total, time of the last scan and block height |
+| `/balance <name>` | only wallets whose name contains `<name>` |
+| `/status` | wallets armed, unacknowledged events, pending notifications, watcher errors |
+| `/help` | list of commands |
+
+The node polls Telegram (`getUpdates`), so no port has to be opened. Messages from other chats are ignored; in a group chat every member of the group can ask. Commands older than five minutes (e.g. sent while the node was offline) are not answered. A Telegram bot delivers commands to one program only: use a separate bot for every installation (for example one for the node and one for XPUB Watch for WordPress), otherwise the UI shows a conflict.
+
+Notifications are written to an outbox in the same database transaction as the event and delivered afterwards. Failed channels are retried with backoff (up to 10 attempts) without duplicating messages on channels that already succeeded.
 
 ## Telegram setup
 
@@ -126,7 +199,7 @@ After adding a wallet, verify several derived receive addresses against the sour
 4. Enter the bot token and chat ID in XPUB Watch.
 5. Use **Send test notification**.
 
-The bot token is stored locally in the XPUB Watch SQLite database. It is not embedded in the source code or release archive.
+The bot token is stored locally in the XPUB Watch SQLite database. It is never shown again in the UI after saving (leave the field empty to keep it, tick "Remove" to delete it). It is not embedded in the source code or release archive.
 
 Example spend notification:
 
@@ -142,6 +215,8 @@ Mempool: https://mempool.space/tx/…
 ```
 
 ## Security model
+
+The web UI requires a password (PBKDF2-SHA256), protects every form with a CSRF token, throttles failed logins and sends a strict Content-Security-Policy. The session cookie is `HttpOnly`, `Secure` and `SameSite=Strict`.
 
 XPUB Watch is watch-only. A compromise of XPUB Watch must not provide signing capability because the application does not require private keys.
 
@@ -188,7 +263,7 @@ Treat the backup as sensitive because it can contain xpubs and notification cred
 
 ## Upgrade
 
-Upload the newer Community App archive through MyNode. The storage directory under `/mnt/hdd/mynode/xpubwatch` is preserved by normal upgrades.
+Install the newer archive exactly like a new installation (steps 1–3 above). The installer backs up `/mnt/hdd/mynode/xpubwatch` first; the data folder itself is kept and migrated by the app.
 
 Always verify after an upgrade:
 
@@ -197,9 +272,43 @@ cat /home/bitcoin/.mynode/xpubwatch_version
 systemctl status xpubwatch --no-pager
 ```
 
+## Upgrading from 0.4
+
+- Install the new archive as described above. Wallets, events and settings are kept.
+- On the first visit after the upgrade you are asked to set an access password.
+- The database is migrated automatically (backup first, see above). Each wallet is re-synchronised once: history unknown to 0.4 is recorded silently, but a spend of a UTXO that 0.4 already tracked still raises an alarm.
+- Notification tokens are no longer displayed; they remain stored.
+
+## Reset the password
+
+```bash
+sudo -u bitcoin XPUBWATCH_DATA_DIR=/mnt/hdd/mynode/xpubwatch \
+  /opt/mynode/xpubwatch/.venv/bin/python /opt/mynode/xpubwatch/manage.py reset-password
+```
+
+Then open XPUB Watch and set a new password immediately.
+
+## Outage alarm (dead man's switch)
+
+XPUB Watch cannot tell you that it is not running – a stopped node, a crashed service or a broken Electrum server would simply stay silent. Under **Notifications → Outage alarm** enter the ping URL of an external monitor:
+
+- [healthchecks.io](https://healthchecks.io) (free tier, alerts via Telegram, e-mail and more): create a check with period 5 minutes and grace time 5 minutes, copy its ping URL
+- Uptime Kuma (self-hosted, e.g. on another machine): a monitor of type *Push*, copy its push URL
+- Cronitor or any service that alerts when an expected HTTP request does not arrive
+
+XPUB Watch requests the URL after every **successful** scan, at most once a minute. A scan only counts as successful when Electrum answered, so an Electrum outage triggers the alarm as well. Saving a new URL sends a test ping. The URL is stored like a token and not shown again. The monitor runs outside your node, so the service learns your node's public IP address and that it is alive – nothing about wallets.
+
+The service unit also repairs the ownership of `/mnt/hdd/mynode/xpubwatch` before every start (a data folder recreated as `root` once kept an installation in a restart loop for days).
+
 ## Uninstall
 
-Use the MyNode application management UI. The exact data-retention behavior should be checked before uninstalling; back up `/mnt/hdd/mynode/xpubwatch` first if the data must be retained.
+Uninstall XPUB Watch under Apps in the MyNode web interface, or over SSH:
+
+```bash
+sudo mynode-manage-apps uninstall xpubwatch
+```
+
+The data folder `/mnt/hdd/mynode/xpubwatch` is kept (it contains xpubs and notification tokens – delete it yourself if you no longer need it). To remove the app from the device completely, also delete `/usr/share/mynode_apps/xpubwatch` and run `sudo mynode-manage-apps init`.
 
 ## Troubleshooting
 
@@ -233,7 +342,9 @@ journalctl -u xpubwatch -n 100 --no-pager
 ## Known limitations
 
 - Public beta; not independently security-audited.
+- The first visitor after installation sets the password. Set it right away.
 - Web UI is intended for a trusted local MyNode environment. Do not expose the XPUB Watch ports directly to the public Internet.
+- Single-signature accounts only (no multisig / descriptors).
 - Notification secrets are stored locally in SQLite. Protect MyNode backups and filesystem access.
 - Taproot / BIP86 account monitoring is not yet implemented.
 - XPUB Watch detects unauthorized-looking spends but cannot prevent a valid transaction signed with compromised private keys.
@@ -241,17 +352,29 @@ journalctl -u xpubwatch -n 100 --no-pager
 
 ## Development
 
-The MyNode Community App source is in:
+The MyNode app source is in:
 
 ```text
 mynode-app/xpubwatch/
 ```
 
-Run the local release checks:
+Run the tests and release checks:
 
 ```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest
 ./scripts/validate-release.sh
 ```
+
+The tests use an in-memory Electrum backend (`tests/fake_electrum.py`) and a local Electrum protocol server (`tests/electrum_server.py`); no node is required.
+
+Build the release archive (reproducible):
+
+```bash
+python3 scripts/build-release.py dist
+```
+
+Release: `scripts/set-version.sh <version>`, add the CHANGELOG entry, commit, tag `v<version>`. The `Release` workflow tests, builds and publishes the archive and `SHA256SUMS` as a GitHub release.
 
 ## License
 

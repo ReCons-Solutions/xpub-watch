@@ -14,6 +14,9 @@ Environment=XPUBWATCH_ELECTRUM_PORT=50001
 Environment=XPUBWATCH_WEB_HOST=127.0.0.1
 Environment=XPUBWATCH_WEB_PORT=5114
 ExecStartPre=/usr/bin/is_not_shutting_down.sh
+# Self-heal the data folder (runs as root, "+"): if it was recreated by another
+# user, the service could not open its database and would restart forever.
+ExecStartPre=+/bin/sh -c 'mkdir -p /mnt/hdd/mynode/xpubwatch && chown -R bitcoin:bitcoin /mnt/hdd/mynode/xpubwatch && chmod 700 /mnt/hdd/mynode/xpubwatch'
 ExecStart=/opt/mynode/xpubwatch/.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:5114 --access-logfile - --error-logfile - app:app
 Restart=always
 RestartSec=10
@@ -21,6 +24,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ReadWritePaths=/mnt/hdd/mynode/xpubwatch
+UMask=0077
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 SyslogIdentifier=xpubwatch
 
 [Install]

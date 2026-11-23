@@ -8,3 +8,6 @@ __pycache__/
 .venv/
 .DS_Store
 release/*.tmp
+.pytest_cache/
+dist/
+release/

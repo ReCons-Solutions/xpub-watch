@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="narrow">
+  <h2>Log in</h2>
+  <form method="post" action="{{ url_for('login') }}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Password <input type="password" name="password" required autocomplete="current-password" autofocus></label>
+    <button>Log in</button>
+  </form>
+  <p class="muted">Forgot the password? See “Reset the password” in the README (requires SSH access to the node).</p>
+</section>
+{% endblock %}
